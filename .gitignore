@@ -1,0 +1,7 @@
+ckpts
+data
+mmdetection3d
+results
+tools
+*.pyc
+work_dirs/
