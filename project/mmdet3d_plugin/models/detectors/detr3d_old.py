@@ -1,8 +1,8 @@
-from mmdet.models import DETECTORS
+from mmdet3d.registry import MODELS
 from .detr3d import Detr3D
 import numpy as np
 
-@DETECTORS.register_module()
+@MODELS.register_module()
 class Detr3D_old(Detr3D):
     """Detr3D for old models trained earlier than mmdet3d-1.0.0"""
     def __init__(self, **kawrgs):

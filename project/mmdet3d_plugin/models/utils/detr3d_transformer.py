@@ -11,7 +11,7 @@ from mmcv.cnn.bricks.transformer import (MultiScaleDeformableAttention,
                                          build_transformer_layer_sequence)
 from mmcv.runner.base_module import BaseModule
 
-from mmdet.models.utils.builder import TRANSFORMER
+from mmdet.registry import MODELS
 
 
 def inverse_sigmoid(x, eps=1e-5):
@@ -32,7 +32,7 @@ def inverse_sigmoid(x, eps=1e-5):
     return torch.log(x1 / x2)
 
 
-@TRANSFORMER.register_module()
+@MODELS.register_module()
 class Detr3DTransformer(BaseModule):
     """Implements the Detr3D transformer.
     Args:
@@ -129,7 +129,7 @@ class Detr3DTransformer(BaseModule):
         return inter_states, init_reference_out, inter_references_out
 
 
-@TRANSFORMER_LAYER_SEQUENCE.register_module()
+@MODELS.register_module()
 class Detr3DTransformerDecoder(TransformerLayerSequence):
     """Implements the decoder in DETR3D transformer.
     Args:
@@ -202,7 +202,7 @@ class Detr3DTransformerDecoder(TransformerLayerSequence):
         return output, reference_points
 
 
-@ATTENTION.register_module()
+@MODELS.register_module()
 class Detr3DCrossAtten(BaseModule):
     """An attention module used in Detr3d. 
     Args:

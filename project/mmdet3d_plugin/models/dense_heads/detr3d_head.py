@@ -8,13 +8,13 @@ from mmcv.runner import force_fp32
                         
 from mmdet.core import (multi_apply, multi_apply, reduce_mean)
 from mmdet.models.utils.transformer import inverse_sigmoid
-from mmdet.models import HEADS
+from mmdet3d.registry import MODELS
 from mmdet.models.dense_heads import DETRHead
 from mmdet3d.core.bbox.coders import build_bbox_coder
 from projects.mmdet3d_plugin.core.bbox.util import normalize_bbox
 
 
-@HEADS.register_module()
+@MODELS.register_module()
 class Detr3DHead(DETRHead):
     """Head of Detr3D. 
     Args:
