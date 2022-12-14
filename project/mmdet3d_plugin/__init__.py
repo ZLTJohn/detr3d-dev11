@@ -1,8 +1,8 @@
-from .core.bbox.assigners.hungarian_assigner_3d import HungarianAssigner3D
-from .core.bbox.coders.nms_free_coder import NMSFreeCoder
-from .core.bbox.match_costs import BBox3DL1Cost
+from .models.task_modules.hungarian_assigner_3d import HungarianAssigner3D
+from .models.task_modules.nms_free_coder import NMSFreeCoder
+from .models.task_modules.match_costs import BBox3DL1Cost
 # from .datasets import CustomNuScenesDataset
-from .datasets.pipelines import (
+from .datasets.transforms import (
   PhotoMetricDistortionMultiViewImage, PadMultiViewImage, 
   NormalizeMultiviewImage, CropMultiViewImage, RandomScaleImageMultiViewImage,
   HorizontalRandomFlipMultiViewImage
@@ -17,7 +17,7 @@ from .models.dense_heads.detr3d_head import Detr3DHead
 from .models.utils.detr3d_transformer import Detr3DTransformer, Detr3DTransformerDecoder, Detr3DCrossAtten
 
 # from .datasets import CustomWaymoDataset
-from .datasets.pipelines import (
+from .datasets.transforms import (
   MyNormalize, MyLoadAnnotations3D, MyLoadMultiViewImageFromFiles,
   MyPad, MyResize
   )

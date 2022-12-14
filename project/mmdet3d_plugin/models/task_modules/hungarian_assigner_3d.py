@@ -1,11 +1,10 @@
 import torch
 
-from mmdet.core.bbox.builder import BBOX_ASSIGNERS
-from mmdet.core.bbox.assigners import AssignResult
-from mmdet.core.bbox.assigners import BaseAssigner
-from mmdet.core.bbox.match_costs import build_match_cost
-from mmdet.models.utils.transformer import inverse_sigmoid
-from projects.mmdet3d_plugin.core.bbox.util import normalize_bbox
+from mmdet.registry import TASK_UTILS
+from mmdet.models.task_modules.assigners import AssignResult #check
+from mmdet.models.task_modules.assigners import BaseAssigner  #
+# from mmdet.core.bbox.match_costs import build_match_cost 
+from .util import normalize_bbox
 
 try:
     from scipy.optimize import linear_sum_assignment
@@ -13,7 +12,7 @@ except ImportError:
     linear_sum_assignment = None
 
 
-@BBOX_ASSIGNERS.register_module()
+@TASK_UTILS.register_module()
 class HungarianAssigner3D(BaseAssigner):
     """Computes one-to-one matching between predictions and ground truth.
     This class computes an assignment between the targets and the predictions

@@ -1,8 +1,8 @@
 import torch
-from mmdet.core.bbox.match_costs.builder import MATCH_COST
+from mmdet.registry import TASK_UTILS
 
 
-@MATCH_COST.register_module()
+@TASK_UTILS.register_module()
 class BBox3DL1Cost(object):
     """BBox3DL1Cost.
      Args:

@@ -1,11 +1,11 @@
 import torch
 
-from mmdet.core.bbox import BaseBBoxCoder
-from mmdet.core.bbox.builder import BBOX_CODERS
-from projects.mmdet3d_plugin.core.bbox.util import denormalize_bbox
+from mmdet.models.task_modules import BaseBBoxCoder
+from mmdet3d.registry import TASK_UTILS
+# from .util import denormalize_bbox
 
 
-@BBOX_CODERS.register_module()
+@TASK_UTILS.register_module()
 class NMSFreeCoder(BaseBBoxCoder):
     """Bbox coder for NMS-free detector.
     Args:
@@ -56,7 +56,7 @@ class NMSFreeCoder(BaseBBoxCoder):
         bbox_index = indexs // self.num_classes
         bbox_preds = bbox_preds[bbox_index]
 
-        final_box_preds = denormalize_bbox(bbox_preds, None)   #denormalized_bboxes = torch.cat([cx, cy, cz, w, l, h, rot, vx, vy], dim=-1)
+        final_box_preds = None #denormalize_bbox(bbox_preds, None)   #denormalized_bboxes = torch.cat([cx, cy, cz, w, l, h, rot, vx, vy], dim=-1)
         final_scores = scores 
         final_preds = labels 
 

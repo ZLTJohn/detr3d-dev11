@@ -4,9 +4,9 @@ import time
 import torchvision.utils as vutils
 import torch
 import os
-from mmcv.runner import force_fp32, auto_fp16
+from projects.mmdet3d_plugin.models.utils.old_env import force_fp32, auto_fp16
 from mmdet3d.registry import MODELS
-from mmdet3d.core import bbox3d2result
+from mmdet3d.structures import bbox3d2result
 from mmdet3d.models.detectors.mvx_two_stage import MVXTwoStageDetector
 from projects.mmdet3d_plugin.models.utils.grid_mask import GridMask
 # from .visualizer_zlt import *

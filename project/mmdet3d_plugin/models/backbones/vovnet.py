@@ -1,6 +1,6 @@
 
 from collections import OrderedDict
-from mmcv.runner import BaseModule
+from mmengine.model import BaseModule
 from mmdet.registry import MODELS
 import torch
 import torch.nn as nn

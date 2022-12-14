@@ -3,15 +3,18 @@ import copy
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from mmcv.cnn import Linear, bias_init_with_prob
-from mmcv.runner import force_fp32
+from mmcv.cnn import Linear
+from mmengine.model import bias_init_with_prob
+from projects.mmdet3d_plugin.models.utils.old_env import force_fp32
+# from mmcv.runner import force_fp32#failed
                         
-from mmdet.core import (multi_apply, multi_apply, reduce_mean)
-from mmdet.models.utils.transformer import inverse_sigmoid
+from mmdet.models.utils import multi_apply
+from mmdet.utils import reduce_mean
+from mmdet.models.layers import inverse_sigmoid
 from mmdet3d.registry import MODELS
 from mmdet.models.dense_heads import DETRHead
-from mmdet3d.core.bbox.coders import build_bbox_coder
-from projects.mmdet3d_plugin.core.bbox.util import normalize_bbox
+from mmdet3d.models.task_modules.builder import build_bbox_coder
+from projects.mmdet3d_plugin.models.task_modules.util import normalize_bbox
 
 
 @MODELS.register_module()
