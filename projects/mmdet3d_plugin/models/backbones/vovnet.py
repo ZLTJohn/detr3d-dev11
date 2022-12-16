@@ -1,7 +1,7 @@
 
 from collections import OrderedDict
 from mmengine.model import BaseModule
-from mmdet.registry import MODELS
+from mmdet3d.registry import MODELS
 import torch
 import torch.nn as nn
 import torch.nn.functional as F

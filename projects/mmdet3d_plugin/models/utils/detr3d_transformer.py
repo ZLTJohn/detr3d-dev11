@@ -3,15 +3,13 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from mmcv.cnn import xavier_init, constant_init
-from mmcv.cnn.bricks.registry import (ATTENTION,
-                                      TRANSFORMER_LAYER_SEQUENCE)
-from mmcv.cnn.bricks.transformer import (MultiScaleDeformableAttention,
-                                         TransformerLayerSequence,
-                                         build_transformer_layer_sequence)
-from mmcv.runner.base_module import BaseModule
+from mmengine.model import BaseModule, xavier_init, constant_init
 
-from mmdet.registry import MODELS
+from mmcv.ops.multi_scale_deform_attn import MultiScaleDeformableAttention
+from mmcv.cnn.bricks.transformer import (TransformerLayerSequence, 
+                                         build_transformer_layer_sequence)
+
+from mmdet3d.registry import MODELS
 
 
 def inverse_sigmoid(x, eps=1e-5):
@@ -351,7 +349,6 @@ class Detr3DCrossAtten(BaseModule):
 
 
 def feature_sampling(mlvl_feats, ref_pt, pc_range, img_metas, return_depth=False):
-    # breakpoint()
     lidar2img = [meta['lidar2img'] for meta in img_metas]
     lidar2img = np.asarray(lidar2img)
     lidar2img = ref_pt.new_tensor(lidar2img)                                        # (B, N, 4, 4)
@@ -376,15 +373,14 @@ def feature_sampling(mlvl_feats, ref_pt, pc_range, img_metas, return_depth=False
     eps = eps * torch.ones_like(z)
     mask = (z > eps)                                                                #B num_c num_q
     pt_cam = pt_cam[..., 0:2] / torch.maximum(z,eps)    # eps controls minimum
-    if type(img_metas[0]['ori_shape']) == tuple:        #??? new version may bugged !!!
-        (h,w,_) = img_metas[0]['img_shape'][0]          #padded nuscene image: 928*1600
-        pt_cam[..., 0] /= w
-        pt_cam[..., 1] /= h
-    else:                                           
-        (h,w,_) = img_metas[0]['ori_shape'][0]          #waymo image
-        pt_cam[..., 0] /= w                             #cam0~2: 1280*1920
-        pt_cam[..., 1] /= h                             #cam3~4: 886 *1920 padded to 1280*1920
-        mask[:, 3:5, :] &= (pt_cam[:, 3:5, :, 1:2] < 0.7) #filter pt_cam_y > 886
+    (h,w) = img_metas[0]['img_shape'][0]          #padded nuscene image: 928*1600
+    pt_cam[..., 0] /= w
+    pt_cam[..., 1] /= h
+    # else:                                           
+        # (h,w,_) = img_metas[0]['ori_shape'][0]          #waymo image
+        # pt_cam[..., 0] /= w                             #cam0~2: 1280*1920
+        # pt_cam[..., 1] /= h                             #cam3~4: 886 *1920 padded to 1280*1920
+        # mask[:, 3:5, :] &= (pt_cam[:, 3:5, :, 1:2] < 0.7) #filter pt_cam_y > 886
 
     mask = (mask & (pt_cam[..., 0:1] > 0.0)
                  & (pt_cam[..., 0:1] < 1.0)

@@ -1,6 +1,6 @@
 import torch
 
-from mmdet.registry import TASK_UTILS
+from mmdet3d.registry import TASK_UTILS
 from mmdet.models.task_modules.assigners import AssignResult #check
 from mmdet.models.task_modules.assigners import BaseAssigner  #
 # from mmdet.core.bbox.match_costs import build_match_cost 
@@ -43,9 +43,9 @@ class HungarianAssigner3D(BaseAssigner):
                  reg_cost=dict(type='BBoxL1Cost', weight=1.0),
                  iou_cost=dict(type='IoUCost', weight=0.0),
                  pc_range=None):
-        self.cls_cost = build_match_cost(cls_cost)
-        self.reg_cost = build_match_cost(reg_cost)
-        self.iou_cost = build_match_cost(iou_cost)
+        self.cls_cost = TASK_UTILS.build(cls_cost)
+        self.reg_cost = TASK_UTILS.build(reg_cost)
+        self.iou_cost = TASK_UTILS.build(iou_cost)
         self.pc_range = pc_range
 
     def assign(self,

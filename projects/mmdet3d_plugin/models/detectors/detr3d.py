@@ -4,56 +4,74 @@ import time
 import torchvision.utils as vutils
 import torch
 import os
+
+from torch import Tensor
+from mmengine.structures import InstanceData
+from mmdet3d.structures import Det3DDataSample
+from typing import Dict, List, Optional, Sequence
+
 from projects.mmdet3d_plugin.models.utils.old_env import force_fp32, auto_fp16
 from mmdet3d.registry import MODELS
 from mmdet3d.structures import bbox3d2result
 from mmdet3d.models.detectors.mvx_two_stage import MVXTwoStageDetector
 from projects.mmdet3d_plugin.models.utils.grid_mask import GridMask
-# from .visualizer_zlt import *
 
+# from mmdet3d.structures.bbox_3d.utils import get_lidar2img #!!!
+# from .visualizer_zlt import *
+# breakpoint()
 @MODELS.register_module()
-class Detr3D(MVXTwoStageDetector):
+class Detr3D_new(MVXTwoStageDetector):
     """Detr3D."""
 
     def __init__(self,
+                 data_preprocessor = None,
                  use_grid_mask=False,
-                 pts_voxel_layer=None,
-                 pts_voxel_encoder=None,
-                 pts_middle_encoder=None,
-                 pts_fusion_layer=None,
                  img_backbone=None,
-                 pts_backbone=None,
                  img_neck=None,
-                 pts_neck=None,
                  pts_bbox_head=None,
-                 img_roi_head=None,
-                 img_rpn_head=None,
                  train_cfg=None,
                  test_cfg=None,
                  pretrained=None,
                  debug_name=None,
                  gtvis_range = [0,105],
                  vis_count=None):
-        super(Detr3D,
-              self).__init__(pts_voxel_layer, pts_voxel_encoder,
-                             pts_middle_encoder, pts_fusion_layer,
-                             img_backbone, pts_backbone, img_neck, pts_neck,
-                             pts_bbox_head, img_roi_head, img_rpn_head,
-                             train_cfg, test_cfg, pretrained)
-        # breakpoint()
+        super(Detr3D_new, self).__init__(
+                  img_backbone = img_backbone,
+                  img_neck = img_neck,
+                  pts_bbox_head = pts_bbox_head,
+                  train_cfg = train_cfg,
+                  test_cfg = test_cfg,
+                  data_preprocessor = data_preprocessor
+            )
         self.grid_mask = GridMask(True, True, rotate=1, offset=False, ratio=0.5, mode=1, prob=0.7)
         self.use_grid_mask = use_grid_mask
         self.debug_name = debug_name
         self.gtvis_range = gtvis_range
         self.vis_count = vis_count
 
-    def extract_img_feat(self, img, img_metas):
+    def _forward(self):
+        # tensor mode is yet to add
+        pass
+    # def forward(self,
+    #             inputs: Union[dict, List[dict]],
+    #             data_samples: OptSampleList = None,
+    #             mode: str = 'tensor',
+    #             **kwargs) -> ForwardResults:
+    #     if mode == 'loss':
+    #         return self.loss(inputs, data_samples, **kwargs)
+    #     elif mode == 'predict':
+    #         return self.predict(inputs, data_samples, **kwargs)
+    #     elif mode == 'tensor':
+    #         return self._forward(inputs, data_samples, **kwargs)
+
+    def extract_img_feat(self, img: Tensor, input_metas: List[dict]) -> dict:
         """Extract features of images."""
+
         B = img.size(0)
         if img is not None:
             input_shape = img.shape[-2:]#bs nchw
             # update real input shape of each single img
-            for img_meta in img_metas:
+            for img_meta in input_metas:
                 img_meta.update(input_shape=input_shape)
 
             if img.dim() == 5 and img.size(0) == 1:
@@ -70,109 +88,90 @@ class Detr3D(MVXTwoStageDetector):
             return None
         if self.with_img_neck:
             img_feats = self.img_neck(img_feats)
-        ## img_feats == super().extract_img_feat(self,img,img_metas)
+        ## img_feats == super().extract_img_feat(self,img,input_metas)
         img_feats_reshaped = []
         for img_feat in img_feats:
             BN, C, H, W = img_feat.size()
             img_feats_reshaped.append(img_feat.view(B, int(BN / B), C, H, W))
         return img_feats_reshaped
 
-    @auto_fp16(apply_to=('img'), out_fp32=True)
-    def extract_feat(self, img, img_metas):
+
+    def extract_feat(self, batch_inputs_dict: dict,
+                     batch_input_metas: List[dict]) -> tuple:
         """Extract features from images and points."""
-        img_feats = self.extract_img_feat(img, img_metas)
+        imgs = batch_inputs_dict.get('imgs', None)
+        img_feats = self.extract_img_feat(imgs, batch_input_metas)
         return img_feats
 
-    def forward_pts_train(self,
-                          pts_feats,
-                          gt_bboxes_3d,
-                          gt_labels_3d,
-                          img_metas):
-        """Forward function for point cloud branch.
-        Args:
-            pts_feats (list[torch.Tensor]): Features of point cloud branch
-            gt_bboxes_3d (list[:obj:`BaseInstance3DBoxes`]): Ground truth
-                boxes for each sample.
-            gt_labels_3d (list[torch.Tensor]): Ground truth labels for
-                boxes of each sampole
-            img_metas (list[dict]): Meta information of samples.
-            gt_bboxes_ignore (list[torch.Tensor], optional): Ground truth
-                boxes to be ignored. Defaults to None.
-        Returns:
-            dict: Losses of each branch.
-        """
-        outs = self.pts_bbox_head(pts_feats, img_metas)
-        loss_inputs = [gt_bboxes_3d, gt_labels_3d, outs]
-        losses = self.pts_bbox_head.loss(*loss_inputs)
-        return losses
+    def loss(self, batch_inputs_dict: Dict[List, torch.Tensor], ##original forward_train
+             batch_data_samples: List[Det3DDataSample],
+             **kwargs) -> List[Det3DDataSample]:
 
-    @force_fp32(apply_to=('img', 'points'))
-    def forward(self, return_loss=True, **kwargs):
-        """Calls either forward_train or forward_test depending on whether
-        return_loss=True.
-        Note this setting will change the expected inputs. When
-        `return_loss=True`, img and img_metas are single-nested (i.e.
-        torch.Tensor and list[dict]), and when `resturn_loss=False`, img and
-        img_metas should be double nested (i.e.  list[torch.Tensor],
-        list[list[dict]]), with the outer list indicating test time
-        augmentations.
-        """
-        if return_loss:
-            return self.forward_train(**kwargs)
-        else:
-            return self.forward_test(**kwargs)
+        batch_input_metas = [item.metainfo for item in batch_data_samples]
+        batch_input_metas = self.add_lidar2img(batch_input_metas)
+        batch_gt_instances = [item.gt_instances for item in batch_data_samples]
+        img_feats= self.extract_feat(batch_inputs_dict, batch_input_metas)
+        outs = self.pts_bbox_head(img_feats, batch_input_metas,
+                                        **kwargs)
+        loss_inputs = [batch_gt_instances, outs]
+        losses_pts = self.pts_bbox_head.loss_by_feat(*loss_inputs)
+            ### dense_head.loss: forward and gather
+            ### refer to \mmdet3d-latest\mmdet3d\models\dense_heads\base_mono3d_dense_head.py
+        # outs = self.pts_bbox_head(pts_feats, img_metas)
+        # loss_inputs = [gt_bboxes_3d, gt_labels_3d, outs]## this is the forward_train in pts_bbox_head
+        # losses = self.pts_bbox_head.loss(*loss_inputs)
+        return losses_pts
 
-    def forward_train(self,
-                      img_metas,
-                      gt_bboxes_3d,
-                      gt_labels_3d,
-                      img):
-        """Forward training function.
-        Args:
-            img_metas (list[dict], optional): Meta information of each sample.
-            gt_bboxes_3d (list[:obj:`BaseInstance3DBoxes`], optional):
-                Ground truth 3D boxes.
-            gt_labels_3d (list[torch.Tensor], optional): Ground truth labels
-                of 3D boxes.
-            img (torch.Tensor optional): Images of each sample with shape
-                (N, C, H, W).
-        Returns:
-            dict: Losses of different branches.
-        """
-        img_feats = self.extract_feat(img=img, img_metas=img_metas)
-        losses = dict()
-        losses_pts = self.forward_pts_train(img_feats, gt_bboxes_3d,
-                                            gt_labels_3d, img_metas)
-        losses.update(losses_pts)
-        return losses
-    
-    def forward_test(self, img_metas, img=None, **kwargs):
-        for var, name in [(img_metas, 'img_metas')]:
-            if not isinstance(var, list):
-                raise TypeError('{} must be a list, but got {}'.format(
-                    name, type(var)))
-        img = [img] if img is None else img
-        return self.simple_test(img_metas[0], img[0], **kwargs)
+    def predict(self, batch_inputs_dict: Dict[str, Optional[Tensor]],   #original simple_test
+                batch_data_samples: List[Det3DDataSample],
+                **kwargs) -> List[Det3DDataSample]:
+        batch_input_metas = [item.metainfo for item in batch_data_samples]
+        batch_input_metas = self.add_lidar2img(batch_input_metas)
+        img_feats = self.extract_feat(batch_inputs_dict,
+                                      batch_input_metas)
+        bbox_list = [dict() for i in range(len(batch_input_metas))]
 
-    def simple_test_pts(self, x, img_metas, rescale=False):
-        """Test function of point cloud branch."""
-        outs = self.pts_bbox_head(x, img_metas)
-        bbox_list = self.pts_bbox_head.get_bboxes(
-            outs, img_metas, rescale=rescale)
-        bbox_results = [
-            bbox3d2result(bboxes, scores, labels)       # to CPU
-            for bboxes, scores, labels in bbox_list     #for each in batch
-        ]
-        return bbox_results #list of dict(bboxes scores labels) in one frame
-    
-    def simple_test(self, img_metas, img=None, rescale=False):
-        """Test function without augmentaiton."""
-        img_feats = self.extract_feat(img=img, img_metas=img_metas)
+        #forward_pts_train in old version
+        outs = self.pts_bbox_head(img_feats, batch_input_metas)
+        results_list_3d = self.pts_bbox_head.predict_by_feat(outs, batch_input_metas, **kwargs)#rescale in kwargs
+        # breakpoint()
+        detsamples = self.add_pred_to_datasample(batch_data_samples,
+                                                 results_list_3d)
+        return detsamples
+    #temporary slow function
+    def add_lidar2img(self, batch_input_metas: List[dict]) -> List[dict]:
+        for meta in batch_input_metas:
+            l2i = list()
+            for i in range(len(meta['cam2img'])):
+                c2i = torch.tensor(meta['cam2img'][i]).double()
+                l2c = torch.tensor(meta['lidar2cam'][i]).double()
+                l2i.append(get_lidar2img(c2i, l2c).float().numpy())
+            meta['lidar2img'] = l2i
+        return batch_input_metas
 
-        bbox_list = [dict() for i in range(len(img_metas))]
-        bbox_pts = self.simple_test_pts(
-            img_feats, img_metas, rescale=rescale)
-        
-        for result_dict, pts_bbox in zip(bbox_list, bbox_pts):
-            result_dict['pts_bbox'] = pts_bbox
-        return bbox_list    #list of dict of pts_bbox=dict(bboxes scores labels), len()=batch size
+def get_lidar2img(cam2img, lidar2cam):
+    """Get the projection matrix of lidar2img.
+
+    Args:
+        cam2img (torch.Tensor): A 3x3 or 4x4 projection matrix.
+        lidar2cam (torch.Tensor): A 3x3 or 4x4 projection matrix.
+
+    Returns:
+        torch.Tensor: transformation matrix with shape 4x4.
+    """
+    lidar2cam_r = lidar2cam[:3,:3]  #fix translation bug
+    lidar2cam_t = lidar2cam[:3, 3]
+    lidar2cam_t = torch.matmul(lidar2cam_t, lidar2cam_r.T)
+    lidar2cam[:3, 3] = lidar2cam_t
+    if cam2img.shape == (3, 3):
+        temp = cam2img.new_zeros(4, 4)
+        temp[:3, :3] = cam2img
+        temp[3,3] = 1
+        cam2img = temp
+
+    if lidar2cam.shape == (3, 3):
+        temp = lidar2cam.new_zeros(4, 4)
+        temp[:3, :3] = lidar2cam
+        temp[3,3] = 1
+        lidar2cam = temp
+    return torch.matmul(cam2img, lidar2cam)

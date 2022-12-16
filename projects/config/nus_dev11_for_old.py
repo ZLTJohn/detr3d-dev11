@@ -29,7 +29,7 @@ input_modality = dict(
 
 default_scope = 'mmdet3d' # that means type='Detr3D' will be processed as 'mmdet3d.Detr3D'
 model = dict(
-    type='Detr3D',
+    type='Detr3D_old',
     use_grid_mask=True,
     data_preprocessor=dict(
         type='Det3DDataPreprocessor',
@@ -243,3 +243,26 @@ val_cfg = dict(type='ValLoop')
 test_cfg = dict(type='TestLoop')
 # load_from='/home/chenxuanyao/checkpoint/fcos3d_detr3d.pth'
 load_from = 'ckpts/fcos3d_yue.pth'
+
+
+#test time
+# mAP: 0.3450                                                                                                                                                                                                                                  mATE: 0.7740
+# mASE: 0.2675
+# mAOE: 0.3960
+# mAVE: 0.8737
+# mAAE: 0.2156
+# NDS: 0.4198
+# Eval time: 161.5s
+
+# Per-class results:
+# Object Class    AP      ATE     ASE     AOE     AVE     AAE
+# car     0.534   0.565   0.152   0.071   0.907   0.214
+# truck   0.285   0.839   0.213   0.114   0.984   0.229
+# bus     0.346   0.924   0.199   0.117   2.060   0.379
+# trailer 0.166   1.108   0.230   0.551   0.734   0.126
+# construction_vehicle    0.082   1.057   0.446   1.013   0.125   0.387
+# pedestrian      0.426   0.688   0.294   0.508   0.459   0.195
+# motorcycle      0.343   0.696   0.260   0.475   1.268   0.180
+# bicycle 0.275   0.691   0.275   0.578   0.452   0.015
+# traffic_cone    0.521   0.555   0.314   nan     nan     nan
+# barrier 0.473   0.619   0.293   0.138   nan     nan

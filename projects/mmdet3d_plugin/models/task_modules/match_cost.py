@@ -1,5 +1,5 @@
 import torch
-from mmdet.registry import TASK_UTILS
+from mmdet3d.registry import TASK_UTILS
 
 
 @TASK_UTILS.register_module()

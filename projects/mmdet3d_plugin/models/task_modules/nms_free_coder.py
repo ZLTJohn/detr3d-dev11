@@ -2,7 +2,7 @@ import torch
 
 from mmdet.models.task_modules import BaseBBoxCoder
 from mmdet3d.registry import TASK_UTILS
-# from .util import denormalize_bbox
+from .util import denormalize_bbox
 
 
 @TASK_UTILS.register_module()
@@ -56,7 +56,7 @@ class NMSFreeCoder(BaseBBoxCoder):
         bbox_index = indexs // self.num_classes
         bbox_preds = bbox_preds[bbox_index]
 
-        final_box_preds = None #denormalize_bbox(bbox_preds, None)   #denormalized_bboxes = torch.cat([cx, cy, cz, w, l, h, rot, vx, vy], dim=-1)
+        final_box_preds = denormalize_bbox(bbox_preds, None)   #denormalized_bboxes = torch.cat([cx, cy, cz, w, l, h, rot, vx, vy], dim=-1)
         final_scores = scores 
         final_preds = labels 
 
