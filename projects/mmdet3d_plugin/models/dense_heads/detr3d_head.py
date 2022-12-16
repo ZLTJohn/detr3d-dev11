@@ -20,7 +20,7 @@ from mmdet.utils import reduce_mean
 from mmdet.models.layers import inverse_sigmoid
 from mmdet3d.registry import MODELS
 from mmdet.models.dense_heads import DETRHead
-from mmdet3d.models.task_modules.builder import build_bbox_coder
+from mmdet3d.models.task_modules.builder import build_bbox_coder    #need to change
 from projects.mmdet3d_plugin.models.task_modules.util import normalize_bbox
 
 
@@ -55,8 +55,11 @@ class Detr3DHead(DETRHead):
         self.bbox_coder = build_bbox_coder(bbox_coder)
         self.pc_range = self.bbox_coder.pc_range
         self.num_cls_fcs = num_cls_fcs - 1  #？？？这不就没用了么...
-        super(Detr3DHead_new, self).__init__(
+        super(Detr3DHead, self).__init__(
             *args, transformer=transformer, **kwargs)
+        # DETR sampling=False, so use PseudoSampler, format the result
+        sampler_cfg = dict(type='PseudoSampler')
+        self.sampler = TASK_UTILS.build(sampler_cfg)
 
         self.code_weights = nn.Parameter(torch.tensor(
             self.code_weights, requires_grad=False), requires_grad=False)
@@ -162,13 +165,17 @@ class Detr3DHead(DETRHead):
                            bbox_pred,       #[query, 8]
                            gt_instances):   #[num_gt, 1+7]
         gt_bboxes = gt_instances.bboxes_3d##!!!!!
+        gt_bboxes = torch.cat((gt_bboxes.gravity_center, gt_bboxes.tensor[:, 3:]), dim=1)
         gt_labels = gt_instances.labels_3d
+        # gt_bboxes_list = [torch.cat(
+        #     (gt_bboxes.gravity_center, gt_bboxes.tensor[:, 3:]),        # turn bottm center into gravity center, key step
+        #     dim=1).to(device) for gt_bboxes in gt_bboxes_list]
         num_bboxes = bbox_pred.size(0)
         # assigner and sampler,PseudoSampler
         assign_result = self.assigner.assign(bbox_pred, cls_score, gt_bboxes,
-                                             gt_labels, gt_bboxes_ignore)
-        sampling_result = self.sampler.sample(assign_result, bbox_pred,
-                                              gt_bboxes)
+                                             gt_labels, gt_bboxes_ignore = None)
+        sampling_result = self.sampler.sample(assign_result, InstanceData(priors = bbox_pred),
+                                              InstanceData(bboxes_3d = gt_bboxes))
         pos_inds = sampling_result.pos_inds
         neg_inds = sampling_result.neg_inds
 
@@ -217,7 +224,7 @@ class Detr3DHead(DETRHead):
                     batch_bbox_preds,     ## variable names need to corrected!!!???
                     batch_gt_instances):
 
-        num_imgs = cls_scores.size(0)#batch size
+        num_imgs = batch_cls_scores.size(0)#batch size
         cls_scores_list = [batch_cls_scores[i] for i in range(num_imgs)]
         bbox_preds_list = [batch_bbox_preds[i] for i in range(num_imgs)]#tensor to list of tensor
         cls_reg_targets = self.get_targets(cls_scores_list, bbox_preds_list,
@@ -231,17 +238,17 @@ class Detr3DHead(DETRHead):
         bbox_weights = torch.cat(bbox_weights_list, 0)
 
         # classification loss
-        cls_scores = cls_scores.reshape(-1, self.cls_out_channels)
+        batch_cls_scores = batch_cls_scores.reshape(-1, self.cls_out_channels)
         # construct weighted avg_factor to match with the official DETR repo
         cls_avg_factor = num_total_pos * 1.0 + \
             num_total_neg * self.bg_cls_weight
         if self.sync_cls_avg_factor:
             cls_avg_factor = reduce_mean(
-                cls_scores.new_tensor([cls_avg_factor]))
+                batch_cls_scores.new_tensor([cls_avg_factor]))
 
         cls_avg_factor = max(cls_avg_factor, 1)
         loss_cls = self.loss_cls(
-            cls_scores, labels, label_weights, avg_factor=cls_avg_factor)
+            batch_cls_scores, labels, label_weights, avg_factor=cls_avg_factor)
         # weights is query-wise 用于为每个query的loss加权，加权后统计loss和，然后用avg_factor除一下。
         # Compute the average number of gt boxes accross all gpus, for
         # normalization purposes
@@ -249,13 +256,13 @@ class Detr3DHead(DETRHead):
         num_total_pos = torch.clamp(reduce_mean(num_total_pos), min=1).item()
 
         # regression L1 loss
-        bbox_preds = bbox_preds.reshape(-1, bbox_preds.size(-1))
+        batch_bbox_preds = batch_bbox_preds.reshape(-1, batch_bbox_preds.size(-1))
         normalized_bbox_targets = normalize_bbox(bbox_targets, self.pc_range)
         isnotnan = torch.isfinite(normalized_bbox_targets).all(dim=-1)      #neg_query is all 0, log(0) is NaN
         bbox_weights = bbox_weights * self.code_weights
 
         loss_bbox = self.loss_bbox(
-                bbox_preds[isnotnan, :self.code_size], normalized_bbox_targets[isnotnan, :self.code_size], bbox_weights[isnotnan, :self.code_size], avg_factor=num_total_pos)
+                batch_bbox_preds[isnotnan, :self.code_size], normalized_bbox_targets[isnotnan, :self.code_size], bbox_weights[isnotnan, :self.code_size], avg_factor=num_total_pos)
 
         loss_cls = torch.nan_to_num(loss_cls)
         loss_bbox = torch.nan_to_num(loss_bbox)
@@ -276,10 +283,10 @@ class Detr3DHead(DETRHead):
         enc_bbox_preds = preds_dicts['enc_bbox_preds']
 
         num_dec_layers = len(all_cls_scores)
-        device = gt_labels_list[0].device
-        gt_bboxes_list = [torch.cat(
-            (gt_bboxes.gravity_center, gt_bboxes.tensor[:, 3:]),        # turn bottm center into gravity center, key step
-            dim=1).to(device) for gt_bboxes in gt_bboxes_list]
+        device = all_cls_scores[0].device
+        # gt_bboxes_list = [torch.cat(
+        #     (gt_bboxes.gravity_center, gt_bboxes.tensor[:, 3:]),        # turn bottm center into gravity center, key step
+        #     dim=1).to(device) for gt_bboxes in gt_bboxes_list]
 
         batch_gt_instances_list = [batch_gt_instances for _ in range(num_dec_layers)]
         # batch_gt_instances_ignore_list = [batch_gt_instances_ignore  
@@ -303,8 +310,7 @@ class Detr3DHead(DETRHead):
                 for i in range(len(all_gt_labels_list))
             ]
             enc_loss_cls, enc_losses_bbox = \
-                self.loss_single(enc_cls_scores, enc_bbox_preds,
-                                 gt_bboxes_list, binary_labels_list, gt_bboxes_ignore)
+                self.loss_by_feat_single(enc_cls_scores, enc_bbox_preds, batch_gt_instances_list)
             loss_dict['enc_loss_cls'] = enc_loss_cls
             loss_dict['enc_loss_bbox'] = enc_losses_bbox
 

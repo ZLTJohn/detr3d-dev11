@@ -57,7 +57,7 @@ model = dict(
         num_outs=4,
         relu_before_extra_convs=True),
     pts_bbox_head=dict(
-        type='Detr3DHead_new',
+        type='Detr3DHead',
         num_query=900,
         num_classes=10,
         in_channels=256,
@@ -122,7 +122,7 @@ model = dict(
             iou_cost=dict(type='mmdet.IoUCost', weight=0.0), # Fake cost. This is just to make it compatible with DETR head. 
             pc_range=point_cloud_range))))
 
-dataset_type = 'custom_nuscenes'
+dataset_type = 'NuScenesDataset'
 data_root = 'data/nus_v2/'
 
 file_client_args = dict(backend='disk')

@@ -57,7 +57,7 @@ model = dict(
         num_outs=4,
         relu_before_extra_convs=True),
     pts_bbox_head=dict(
-        type='Detr3DHead_new',
+        type='Detr3DHead',
         num_query=900,
         num_classes=10,
         in_channels=256,
@@ -122,24 +122,8 @@ model = dict(
             iou_cost=dict(type='mmdet.IoUCost', weight=0.0), # Fake cost. This is just to make it compatible with DETR head. 
             pc_range=point_cloud_range))))
 
-dataset_type = 'custom_nuscenes'
+dataset_type = 'NuScenesDataset'
 data_root = 'data/nus_v2/'
-
-file_client_args = dict(backend='disk')
-train_pipeline = [# incorrect!!!!
-    dict(type='LoadMultiViewImageFromFiles', to_float32=True),
-    dict(type='PhotoMetricDistortionMultiViewImage'),
-    dict(type='LoadAnnotations3D', with_bbox_3d=True, with_label_3d=True, with_attr_label=False),
-    dict(type='ObjectRangeFilter', point_cloud_range=point_cloud_range),
-    dict(type='ObjectNameFilter', classes=class_names),
-    # dict(type='LidarBox3dVersionTransfrom'),  #petr's solution
-    dict(type='NormalizeMultiviewImage', **img_norm_cfg),
-    dict(type='PadMultiViewImage', size_divisor=32),
-    dict(
-        type='Pack3DDetInputs',
-        keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
-]
-
 
 test_transforms = [
     dict(
@@ -148,6 +132,23 @@ test_transforms = [
         ratio_range=(1., 1.),
         keep_ratio=True)
 ]
+train_transforms = test_transforms
+
+file_client_args = dict(backend='disk')
+train_pipeline = [
+    dict(type='LoadMultiViewImageFromFiles', to_float32=True, num_views = 6),
+    dict(type='PhotoMetricDistortionMultiViewImage'),
+    dict(type='LoadAnnotations3D', with_bbox_3d=True, with_label_3d=True, with_attr_label=False),
+    dict(type='MultiViewWrapper', transforms=train_transforms),
+    dict(type='ObjectRangeFilter', point_cloud_range=point_cloud_range),
+    dict(type='ObjectNameFilter', classes=class_names),
+    # # dict(type='LidarBox3dVersionTransfrom'),  #petr's solution
+    # dict(type='NormalizeMultiviewImage', **img_norm_cfg),
+    # dict(type='PadMultiViewImage', size_divisor=32),
+    dict(type='Pack3DDetInputs', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
+]
+
+
 test_pipeline = [
     dict(type='LoadMultiViewImageFromFiles', to_float32=True, num_views = 6),
     # dict(type='NormalizeMultiviewImage', **img_norm_cfg),
@@ -168,9 +169,9 @@ data_prefix=dict(
 
 train_dataloader = dict(
     batch_size=1,
-    num_workers=0,
+    num_workers=4,
     persistent_workers=False,
-    sampler=dict(type='DefaultSampler', shuffle=True),
+    sampler=dict(type='DefaultSampler', shuffle=False),
     dataset=dict(
         type=dataset_type,
         data_root=data_root,
@@ -216,12 +217,13 @@ test_evaluator = val_evaluator
 optim_wrapper = dict(
     type='OptimWrapper',
     optimizer = dict(
-        _delete_=True,
         type='AdamW', 
         lr=2e-4,
         weight_decay=0.01),
     paramwise_cfg=dict(custom_keys={'img_backbone': dict(lr_mult=0.1)}),
-    grad_clip=dict(max_norm=35, norm_type=2))
+    clip_grad=dict(max_norm=35, norm_type=2),
+    )
+
 # learning policy
 param_scheduler = [
     dict(type='LinearLR',

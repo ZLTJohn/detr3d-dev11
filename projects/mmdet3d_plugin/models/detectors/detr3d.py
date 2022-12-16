@@ -18,9 +18,8 @@ from projects.mmdet3d_plugin.models.utils.grid_mask import GridMask
 
 # from mmdet3d.structures.bbox_3d.utils import get_lidar2img #!!!
 # from .visualizer_zlt import *
-# breakpoint()
 @MODELS.register_module()
-class Detr3D_new(MVXTwoStageDetector):
+class Detr3D(MVXTwoStageDetector):
     """Detr3D."""
 
     def __init__(self,
@@ -35,7 +34,7 @@ class Detr3D_new(MVXTwoStageDetector):
                  debug_name=None,
                  gtvis_range = [0,105],
                  vis_count=None):
-        super(Detr3D_new, self).__init__(
+        super(Detr3D, self).__init__(
                   img_backbone = img_backbone,
                   img_neck = img_neck,
                   pts_bbox_head = pts_bbox_head,
@@ -109,7 +108,7 @@ class Detr3D_new(MVXTwoStageDetector):
 
         batch_input_metas = [item.metainfo for item in batch_data_samples]
         batch_input_metas = self.add_lidar2img(batch_input_metas)
-        batch_gt_instances = [item.gt_instances for item in batch_data_samples]
+        batch_gt_instances = [item.gt_instances_3d for item in batch_data_samples]
         img_feats= self.extract_feat(batch_inputs_dict, batch_input_metas)
         outs = self.pts_bbox_head(img_feats, batch_input_metas,
                                         **kwargs)
@@ -134,7 +133,7 @@ class Detr3D_new(MVXTwoStageDetector):
         #forward_pts_train in old version
         outs = self.pts_bbox_head(img_feats, batch_input_metas)
         results_list_3d = self.pts_bbox_head.predict_by_feat(outs, batch_input_metas, **kwargs)#rescale in kwargs
-        # breakpoint()
+
         detsamples = self.add_pred_to_datasample(batch_data_samples,
                                                  results_list_3d)
         return detsamples

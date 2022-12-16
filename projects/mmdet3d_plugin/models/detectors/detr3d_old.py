@@ -1,5 +1,5 @@
 from mmdet3d.registry import MODELS
-from .detr3d_new import Detr3D_new
+from .detr3d import Detr3D
 import numpy as np
 
 from torch import Tensor
@@ -7,7 +7,7 @@ from mmdet3d.structures import Det3DDataSample
 from typing import Dict, List, Optional, Sequence
 
 @MODELS.register_module()
-class Detr3D_old(Detr3D_new):
+class Detr3D_old(Detr3D):
     """Detr3D for old models trained earlier than mmdet3d-1.0.0"""
     def __init__(self, **kawrgs):
         super().__init__(**kawrgs)
@@ -21,7 +21,6 @@ class Detr3D_old(Detr3D_new):
         img_feats = self.extract_feat(batch_inputs_dict,
                                       batch_input_metas)
         bbox_list = [dict() for i in range(len(batch_input_metas))]
-
         #forward_pts_train in old version
         outs = self.pts_bbox_head(img_feats, batch_input_metas)
         results_list_3d = self.pts_bbox_head.predict_by_feat(outs, batch_input_metas, **kwargs)#rescale in kwargs

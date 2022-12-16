@@ -7,10 +7,9 @@ from .datasets.transforms import (
   NormalizeMultiviewImage, CropMultiViewImage, RandomScaleImageMultiViewImage,
   HorizontalRandomFlipMultiViewImage
   )
-from .datasets import custom_nuscenes
+# from .datasets import custom_nuscenes
 from .models.backbones.vovnet import VoVNet
 # from .models.detectors.obj_dgcnn import ObjDGCNN
-# breakpoint()
 from .models.detectors.detr3d import Detr3D
 # from .models.dense_heads.dgcnn3d_head import DGCNN3DHead
 from .models.dense_heads.detr3d_head import Detr3DHead
