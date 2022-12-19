@@ -1,12 +1,15 @@
-import numpy as np
-from numpy import random
 import mmcv
+import numpy as np
 from mmdet3d.registry import TRANSFORMS
+from numpy import random
+
 
 @TRANSFORMS.register_module()
 class PhotoMetricDistortionMultiViewImage:
     """Apply photometric distortion to image sequentially, every transformation
-    is applied with a probability of 0.5. The position of random contrast is in
+    is applied with a probability of 0.5.
+
+    The position of random contrast is in
     second or second to last.
     1. random brightness
     2. random contrast (mode 0)
@@ -35,6 +38,7 @@ class PhotoMetricDistortionMultiViewImage:
 
     def __call__(self, results):
         """Call function to perform photometric distortion on images.
+
         Args:
             results (dict): Result dict from loading pipeline.
         Returns:
@@ -49,7 +53,7 @@ class PhotoMetricDistortionMultiViewImage:
             # random brightness
             if random.randint(2):
                 delta = random.uniform(-self.brightness_delta,
-                                    self.brightness_delta)
+                                       self.brightness_delta)
                 img += delta
 
             # mode == 0 --> do random contrast first
@@ -58,7 +62,7 @@ class PhotoMetricDistortionMultiViewImage:
             if mode == 1:
                 if random.randint(2):
                     alpha = random.uniform(self.contrast_lower,
-                                        self.contrast_upper)
+                                           self.contrast_upper)
                     img *= alpha
 
             # convert color from BGR to HSV
@@ -67,7 +71,7 @@ class PhotoMetricDistortionMultiViewImage:
             # random saturation
             if random.randint(2):
                 img[..., 1] *= random.uniform(self.saturation_lower,
-                                            self.saturation_upper)
+                                              self.saturation_upper)
 
             # random hue
             if random.randint(2):
@@ -82,7 +86,7 @@ class PhotoMetricDistortionMultiViewImage:
             if mode == 0:
                 if random.randint(2):
                     alpha = random.uniform(self.contrast_lower,
-                                        self.contrast_upper)
+                                           self.contrast_upper)
                     img *= alpha
 
             # randomly swap channels
@@ -130,7 +134,6 @@ class PhotoMetricDistortionMultiViewImage:
 #         repr_str += f'(size={self.size}, '
 #         return repr_str
 
-
 # @TRANSFORMS.register_module()
 # class RandomScaleImageMultiViewImage(object):
 #     """Random scale the image
@@ -152,7 +155,7 @@ class PhotoMetricDistortionMultiViewImage:
 #         rand_scale = self.scales[0]
 #         img_shape = results['img_shape'][0]
 #         y_size = int(img_shape[0] * rand_scale)
-#         x_size = int(img_shape[1] * rand_scale) 
+#         x_size = int(img_shape[1] * rand_scale)
 #         scale_factor = np.eye(4)
 #         scale_factor[0, 0] *= rand_scale
 #         scale_factor[1, 1] *= rand_scale
@@ -167,7 +170,6 @@ class PhotoMetricDistortionMultiViewImage:
 #         repr_str = self.__class__.__name__
 #         repr_str += f'(size={self.scales}, '
 #         return repr_str
-
 
 # @TRANSFORMS.register_module()
 # class HorizontalRandomFlipMultiViewImage(object):
@@ -214,4 +216,3 @@ class PhotoMetricDistortionMultiViewImage:
 #             else:
 #                 input_dict[key].flip(direction)
 #         return input_dict
-

@@ -2,6 +2,11 @@
 # from mmcv.runner import force_fp32#failed
 import functools
 from inspect import getfullargspec
+
+import numpy as np
+import torch
+import torch.nn as nn
+
 # try:
 #     # If PyTorch version >= 1.6.0, torch.cuda.amp.autocast would be imported
 #     # and used; otherwise, auto fp16 will adopt mmcv's implementation.
@@ -11,9 +16,6 @@ from inspect import getfullargspec
 # except ImportError:
 #     pass
 
-import numpy as np
-import torch
-import torch.nn as nn
 
 def force_fp32(apply_to=None, out_fp16=False):
     """Decorator to convert input arguments to fp32 in force.

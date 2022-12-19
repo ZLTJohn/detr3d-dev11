@@ -1,13 +1,14 @@
 import torch
-
-from mmdet.models.task_modules import BaseBBoxCoder
 from mmdet3d.registry import TASK_UTILS
+from mmdet.models.task_modules import BaseBBoxCoder
+
 from .util import denormalize_bbox
 
 
 @TASK_UTILS.register_module()
 class NMSFreeCoder(BaseBBoxCoder):
     """Bbox coder for NMS-free detector.
+
     Args:
         pc_range (list[float]): Range of point cloud.
         post_center_range (list[float]): Limit of the center.
@@ -25,7 +26,7 @@ class NMSFreeCoder(BaseBBoxCoder):
                  max_num=100,
                  score_threshold=None,
                  num_classes=10):
-        
+
         self.pc_range = pc_range
         self.voxel_size = voxel_size
         self.post_center_range = post_center_range
@@ -38,6 +39,7 @@ class NMSFreeCoder(BaseBBoxCoder):
 
     def decode_single(self, cls_scores, bbox_preds):
         """Decode bboxes.
+
         Args:
             cls_scores (Tensor): Outputs from the classification head, \
                 shape [num_query, cls_out_channels]. Note \
@@ -51,21 +53,23 @@ class NMSFreeCoder(BaseBBoxCoder):
         max_num = self.max_num
 
         cls_scores = cls_scores.sigmoid()
-        scores, indexs = cls_scores.view(-1).topk(max_num)
-        labels = indexs % self.num_classes
-        bbox_index = indexs // self.num_classes
+        scores, indexes = cls_scores.view(-1).topk(max_num)
+        labels = indexes % self.num_classes
+        bbox_index = indexes // self.num_classes
         bbox_preds = bbox_preds[bbox_index]
 
-        final_box_preds = denormalize_bbox(bbox_preds, None)   #denormalized_bboxes = torch.cat([cx, cy, cz, w, l, h, rot, vx, vy], dim=-1)
-        final_scores = scores 
-        final_preds = labels 
+        final_box_preds = denormalize_bbox(
+            bbox_preds, None
+        )  #denormalized_bboxes = torch.cat([cx, cy, cz, w, l, h, rot, vx, vy], dim=-1)
+        final_scores = scores
+        final_preds = labels
 
         # use score threshold
         if self.score_threshold is not None:
             thresh_mask = final_scores > self.score_threshold
         if self.post_center_range is not None:
-            self.post_center_range = torch.tensor(
-                self.post_center_range, device=scores.device)
+            self.post_center_range = torch.tensor(self.post_center_range,
+                                                  device=scores.device)
             mask = (final_box_preds[..., :3] >=
                     self.post_center_range[:3]).all(1)
             mask &= (final_box_preds[..., :3] <=
@@ -91,6 +95,7 @@ class NMSFreeCoder(BaseBBoxCoder):
 
     def decode(self, preds_dicts):
         """Decode bboxes.
+
         Args:
             all_cls_scores (Tensor): Outputs from the classification head, \
                 shape [nb_dec, bs, num_query, cls_out_channels]. Note \
@@ -101,11 +106,13 @@ class NMSFreeCoder(BaseBBoxCoder):
         Returns:
             list[dict]: Decoded boxes.
         """
-        all_cls_scores = preds_dicts['all_cls_scores'][-1]#cls & reg target of last decoder layer
+        all_cls_scores = preds_dicts['all_cls_scores'][
+            -1]  #cls & reg target of last decoder layer
         all_bbox_preds = preds_dicts['all_bbox_preds'][-1]
-        
+
         batch_size = all_cls_scores.size()[0]
         predictions_list = []
         for i in range(batch_size):
-            predictions_list.append(self.decode_single(all_cls_scores[i], all_bbox_preds[i]))
+            predictions_list.append(
+                self.decode_single(all_cls_scores[i], all_bbox_preds[i]))
         return predictions_list

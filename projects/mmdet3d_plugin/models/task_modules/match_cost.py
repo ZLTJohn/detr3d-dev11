@@ -5,8 +5,9 @@ from mmdet3d.registry import TASK_UTILS
 @TASK_UTILS.register_module()
 class BBox3DL1Cost(object):
     """BBox3DL1Cost.
-     Args:
-         weight (int | float, optional): loss_weight
+
+    Args:
+        weight (int | float, optional): loss_weight
     """
 
     def __init__(self, weight=1.):
