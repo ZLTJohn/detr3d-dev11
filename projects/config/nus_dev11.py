@@ -170,8 +170,9 @@ data_prefix=dict(
 train_dataloader = dict(
     batch_size=1,
     num_workers=4,
-    persistent_workers=False,
-    sampler=dict(type='DefaultSampler', shuffle=False),
+    persistent_workers=True,
+    drop_last=False,
+    sampler=dict(type='DefaultSampler', shuffle=True),
     dataset=dict(
         type=dataset_type,
         data_root=data_root,
@@ -189,7 +190,7 @@ train_dataloader = dict(
 val_dataloader = dict(
     batch_size=1,
     num_workers=4,
-    persistent_workers=False,
+    persistent_workers=True,
     drop_last=False,
     sampler=dict(type='DefaultSampler', shuffle=False),
     dataset=dict(
@@ -236,8 +237,16 @@ param_scheduler = [
         begin=0,
         end=24,
         T_max=24,
-        eta_min=5e-5)
+        eta_min_ratio=1e-3)
 ]
+
+vis_backends = [dict(type='TensorboardVisBackend')]
+visualizer = dict(
+    type='Det3DLocalVisualizer', vis_backends=vis_backends, name='visualizer')
+# ERROR: pip's dependency resolver does not currently take into account all the packages that are installed. This behaviour is the source of the following dependency conflicts.
+# jupyter-packaging 0.12.3 requires setuptools>=60.2.0, but you have setuptools 58.0.4 which is incompatible.   
+# setuptools 65 downgrades to 58.In mmlab-node we use setuptools 61 but occurs NO errors
+
 total_epochs = 24
 checkpoint_config = dict(interval=1, max_keep_ckpts=1)
 train_cfg = dict(type='EpochBasedTrainLoop', max_epochs=total_epochs, val_interval=2)
