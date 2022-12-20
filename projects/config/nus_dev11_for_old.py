@@ -234,7 +234,8 @@ test_cfg = dict(type='TestLoop')
 load_from = 'ckpts/fcos3d_yue.pth'
 
 #test time
-# mAP: 0.3450                                                                                                                                                                                                                                  mATE: 0.7740
+# mAP: 0.3450                                                                                                                                                                                                                                  
+# mATE: 0.7740
 # mASE: 0.2675
 # mAOE: 0.3960
 # mAVE: 0.8737
@@ -256,27 +257,24 @@ load_from = 'ckpts/fcos3d_yue.pth'
 # barrier 0.473   0.619   0.293   0.138   nan     nan
 
 
-
-# After all changes
-# mAP: 0.3405
-
-# mATE: 0.7516
-# mASE: 0.2688
-# mAOE: 0.3750
-# mAVE: 0.8621
-# mAAE: 0.2080
-# NDS: 0.4237
-# Eval time: 124.2s
+# mAP: 0.3450
+# mATE: 0.7740
+# mASE: 0.2675
+# mAOE: 0.3960
+# mAVE: 0.8737
+# mAAE: 0.2156
+# NDS: 0.4198
+# Eval time: 120.2s
 
 # Per-class results:
 # Object Class    AP      ATE     ASE     AOE     AVE     AAE
-# car     0.513   0.590   0.153   0.066   0.932   0.197
-# truck   0.280   0.771   0.206   0.092   1.001   0.237
-# bus     0.356   0.860   0.193   0.131   1.826   0.370
-# trailer 0.179   1.110   0.234   0.564   0.950   0.159
-# construction_vehicle    0.080   0.988   0.444   0.947   0.120   0.330
-# pedestrian      0.397   0.683   0.305   0.532   0.469   0.200
-# motorcycle      0.338   0.712   0.255   0.359   1.194   0.158
-# bicycle 0.256   0.657   0.284   0.583   0.405   0.014
-# traffic_cone    0.508   0.542   0.323   nan     nan     nan
-# barrier 0.501   0.602   0.292   0.100   nan     nan
+# car     0.534   0.565   0.152   0.071   0.907   0.214
+# truck   0.285   0.839   0.213   0.114   0.984   0.229
+# bus     0.346   0.924   0.199   0.117   2.060   0.379
+# trailer 0.166   1.108   0.230   0.551   0.734   0.126
+# construction_vehicle    0.082   1.057   0.446   1.013   0.125   0.387
+# pedestrian      0.426   0.688   0.294   0.508   0.459   0.195
+# motorcycle      0.343   0.696   0.260   0.475   1.268   0.180
+# bicycle 0.275   0.691   0.275   0.578   0.452   0.015
+# traffic_cone    0.521   0.555   0.314   nan     nan     nan
+# barrier 0.473   0.619   0.293   0.138   nan     nan

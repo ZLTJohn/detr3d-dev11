@@ -260,3 +260,29 @@ load_from = 'ckpts/fcos3d_yue.pth'
 
 default_hooks = dict(
     checkpoint=dict(type='CheckpointHook', interval=1, max_keep_ckpts=1, save_last=True))
+
+
+
+# After all changes
+# mAP: 0.3405
+
+# mATE: 0.7516
+# mASE: 0.2688
+# mAOE: 0.3750
+# mAVE: 0.8621
+# mAAE: 0.2080
+# NDS: 0.4237
+# Eval time: 124.2s
+
+# Per-class results:
+# Object Class    AP      ATE     ASE     AOE     AVE     AAE
+# car     0.513   0.590   0.153   0.066   0.932   0.197
+# truck   0.280   0.771   0.206   0.092   1.001   0.237
+# bus     0.356   0.860   0.193   0.131   1.826   0.370
+# trailer 0.179   1.110   0.234   0.564   0.950   0.159
+# construction_vehicle    0.080   0.988   0.444   0.947   0.120   0.330
+# pedestrian      0.397   0.683   0.305   0.532   0.469   0.200
+# motorcycle      0.338   0.712   0.255   0.359   1.194   0.158
+# bicycle 0.256   0.657   0.284   0.583   0.405   0.014
+# traffic_cone    0.508   0.542   0.323   nan     nan     nan
+# barrier 0.501   0.602   0.292   0.100   nan     nan
