@@ -1,8 +1,11 @@
+from typing import List
+
 import torch
 from mmdet3d.registry import TASK_UTILS
 from mmdet.models.task_modules.assigners import AssignResult  # check
 from mmdet.models.task_modules.assigners import BaseAssigner
 from mmengine.structures import InstanceData
+from torch import Tensor
 
 # from mmdet.core.bbox.match_costs import build_match_cost
 from .util import normalize_bbox
@@ -20,19 +23,19 @@ class HungarianAssigner3D(BaseAssigner):
                  cls_cost=dict(type='ClassificationCost', weight=1.),
                  reg_cost=dict(type='BBoxL1Cost', weight=1.0),
                  iou_cost=dict(type='IoUCost', weight=0.0),
-                 pc_range=None):
+                 pc_range: List = None):
         self.cls_cost = TASK_UTILS.build(cls_cost)
         self.reg_cost = TASK_UTILS.build(reg_cost)
         self.iou_cost = TASK_UTILS.build(iou_cost)
         self.pc_range = pc_range
 
     def assign(self,
-               bbox_pred,
-               cls_pred,
-               gt_bboxes,
-               gt_labels,
+               bbox_pred: Tensor,
+               cls_pred: Tensor,
+               gt_bboxes: Tensor,
+               gt_labels: Tensor,
                gt_bboxes_ignore=None,
-               eps=1e-7):
+               eps=1e-7) -> AssignResult:
 
         assert gt_bboxes_ignore is None, \
             'Only case when gt_bboxes_ignore is None is supported.'

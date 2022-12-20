@@ -1,4 +1,5 @@
 import copy
+from typing import Dict, List, Optional, Sequence, Tuple
 
 import torch
 import torch.nn as nn
@@ -10,7 +11,7 @@ from mmdet3d.registry import MODELS
 from mmdet.models.dense_heads import DETRHead
 from mmdet.models.layers import inverse_sigmoid
 from mmdet.models.utils import multi_apply
-from mmdet.registry import MODELS, TASK_UTILS
+from mmdet.registry import TASK_UTILS
 from mmdet.structures import SampleList
 from mmdet.utils import (ConfigType, InstanceList, OptConfigType,
                          OptInstanceList, OptMultiConfig, reduce_mean)
@@ -117,7 +118,8 @@ class Detr3DHead(DETRHead):
             for m in self.cls_branches:
                 nn.init.constant_(m[-1].bias, bias_init)
 
-    def forward(self, mlvl_feats, img_metas, **kwargs):  #forward
+    def forward(self, mlvl_feats: List[Tensor], img_metas: List[Dict],
+                **kwargs) -> Dict[str, Tensor]:  #forward
 
         query_embeds = self.query_embedding.weight
         hs, init_reference, inter_references = self.transformer(
@@ -176,16 +178,15 @@ class Detr3DHead(DETRHead):
 
     def _get_target_single(
             self,
-            cls_score,  #[query, 1]
-            bbox_pred,  #[query, 8]
-            gt_instances):  #[num_gt, 1+7]
-        gt_bboxes = gt_instances.bboxes_3d  ##!!!!!
+            cls_score: Tensor,  #[query, 1]
+            bbox_pred: Tensor,  #[query, 8]
+            gt_instances: InstanceList) -> Tuple[Tensor, ...]:
+        gt_bboxes = gt_instances.bboxes_3d  #[num_gt, 7]
+        # turn bottm center into gravity center
         gt_bboxes = torch.cat(
             (gt_bboxes.gravity_center, gt_bboxes.tensor[:, 3:]), dim=1)
-        gt_labels = gt_instances.labels_3d
-        # gt_bboxes_list = [torch.cat(
-        #     (gt_bboxes.gravity_center, gt_bboxes.tensor[:, 3:]),        # turn bottm center into gravity center, key step
-        #     dim=1).to(device) for gt_bboxes in gt_bboxes_list]
+
+        gt_labels = gt_instances.labels_3d  #[num_gt, 1]
         num_bboxes = bbox_pred.size(0)
         # assigner and sampler,PseudoSampler
         assign_result = self.assigner.assign(bbox_pred,
@@ -228,17 +229,15 @@ class Detr3DHead(DETRHead):
 
     def get_targets(
             self,  #get_targets
-            batch_cls_scores,
-            batch_bbox_preds,
-            batch_gt_instances):
-
-        num_imgs = len(batch_cls_scores)  #bs
+            batch_cls_scores: List[Tensor],  # bs[num_q,1]
+            batch_bbox_preds: List[Tensor],  # bs[num_q,8]
+            batch_gt_instances: InstanceList) ->...:
 
         (labels_list, label_weights_list, bbox_targets_list, bbox_weights_list,
-         pos_inds_list, neg_inds_list
-         ) = multi_apply(  #get targets each frame in batch, here bs = 1
-             self._get_target_single, batch_cls_scores, batch_bbox_preds,
-             batch_gt_instances)
+         pos_inds_list, neg_inds_list) = multi_apply(self._get_target_single,
+                                                     batch_cls_scores,
+                                                     batch_bbox_preds,
+                                                     batch_gt_instances)
 
         num_total_pos = sum((inds.numel() for inds in pos_inds_list))
         num_total_neg = sum((inds.numel() for inds in neg_inds_list))
@@ -247,14 +246,13 @@ class Detr3DHead(DETRHead):
 
     def loss_by_feat_single(
             self,
-            batch_cls_scores,
-            batch_bbox_preds,  ## variable names need to corrected!!!???
-            batch_gt_instances):
+            batch_cls_scores: Tensor,  #bs,num_q,1
+            batch_bbox_preds: Tensor,  #bs,num_q,8
+            batch_gt_instances: InstanceList) ->...:
 
-        num_imgs = batch_cls_scores.size(0)  #batch size
-        cls_scores_list = [batch_cls_scores[i] for i in range(num_imgs)]
-        bbox_preds_list = [batch_bbox_preds[i]
-                           for i in range(num_imgs)]  #tensor to list of tensor
+        batch_size = batch_cls_scores.size(0)  #batch size
+        cls_scores_list = [batch_cls_scores[i] for i in range(batch_size)]
+        bbox_preds_list = [batch_bbox_preds[i] for i in range(batch_size)]
         cls_reg_targets = self.get_targets(cls_scores_list, bbox_preds_list,
                                            batch_gt_instances)
 
@@ -304,27 +302,23 @@ class Detr3DHead(DETRHead):
         loss_bbox = torch.nan_to_num(loss_bbox)
         return loss_cls, loss_bbox
 
+    # original loss()
     @force_fp32(apply_to=('preds_dicts'))
     def loss_by_feat(
-            self,  #<-->loss_old
-            batch_gt_instances,
-            preds_dicts,
-            batch_gt_instances_ignore=None):
+            self,
+            batch_gt_instances: InstanceList,
+            preds_dicts: Dict[str, Tensor],
+            batch_gt_instances_ignore: OptInstanceList = None) -> Dict:
+
         assert batch_gt_instances_ignore is None, \
             f'{self.__class__.__name__} only supports ' \
             f'for batch_gt_instances_ignore setting to None.'
-
-        all_cls_scores = preds_dicts['all_cls_scores']
-        all_bbox_preds = preds_dicts['all_bbox_preds']
+        all_cls_scores = preds_dicts['all_cls_scores']  # num_dec,bs,num_q,1
+        all_bbox_preds = preds_dicts['all_bbox_preds']  # num_dec,bs,num_q,8
         enc_cls_scores = preds_dicts['enc_cls_scores']
         enc_bbox_preds = preds_dicts['enc_bbox_preds']
 
         num_dec_layers = len(all_cls_scores)
-        device = all_cls_scores[0].device
-        # gt_bboxes_list = [torch.cat(
-        #     (gt_bboxes.gravity_center, gt_bboxes.tensor[:, 3:]),        # turn bottm center into gravity center, key step
-        #     dim=1).to(device) for gt_bboxes in gt_bboxes_list]
-
         batch_gt_instances_list = [
             batch_gt_instances for _ in range(num_dec_layers)
         ]
@@ -337,17 +331,18 @@ class Detr3DHead(DETRHead):
         #     gt_bboxes_ignore for _ in range(num_dec_layers)
         # ]
 
-        losses_cls, losses_bbox = multi_apply(  #calculate loss for each decoder layer
-            self.loss_by_feat_single, all_cls_scores, all_bbox_preds,
-            batch_gt_instances_list)
+        #calculate loss for each decoder layer
+        losses_cls, losses_bbox = multi_apply(self.loss_by_feat_single,
+                                              all_cls_scores, all_bbox_preds,
+                                              batch_gt_instances_list)
 
         loss_dict = dict()
         # loss of proposal generated from encode feature map.
         if enc_cls_scores is not None:
-            binary_labels_list = [
-                torch.zeros_like(gt_labels_list[i])
-                for i in range(len(all_gt_labels_list))
-            ]
+            # binary_labels_list = [
+            #     torch.zeros_like(gt_labels_list[i])
+            #     for i in range(len(all_gt_labels_list))
+            # ]
             enc_loss_cls, enc_losses_bbox = \
                 self.loss_by_feat_single(enc_cls_scores, enc_bbox_preds, batch_gt_instances_list)
             loss_dict['enc_loss_cls'] = enc_loss_cls

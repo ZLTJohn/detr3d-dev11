@@ -15,19 +15,15 @@ class Detr3D_old(Detr3D):
     def __init__(self, **kawrgs):
         super().__init__(**kawrgs)
 
-    def predict(
-            self,
-            batch_inputs_dict: Dict[str,
-                                    Optional[Tensor]],  #original simple_test
-            batch_data_samples: List[Det3DDataSample],
-            **kwargs) -> List[Det3DDataSample]:
+    def predict(self, batch_inputs_dict: Dict[str, Optional[Tensor]],
+                batch_data_samples: List[Det3DDataSample],
+                **kwargs) -> List[Det3DDataSample]:
 
         batch_input_metas = [item.metainfo for item in batch_data_samples]
         batch_input_metas = self.add_lidar2img(batch_input_metas)
         img_feats = self.extract_feat(batch_inputs_dict, batch_input_metas)
-        bbox_list = [dict() for i in range(len(batch_input_metas))]
-        #forward_pts_train in old version
         outs = self.pts_bbox_head(img_feats, batch_input_metas)
+
         results_list_3d = self.pts_bbox_head.predict_by_feat(
             outs, batch_input_metas, **kwargs)  #rescale in kwargs
 

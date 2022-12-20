@@ -52,10 +52,6 @@ class Detr3D(MVXTwoStageDetector):
         self.gtvis_range = gtvis_range
         self.vis_count = vis_count
 
-    def _forward(self):
-        # tensor mode is yet to add
-        pass
-
     # def forward(self,
     #             inputs: Union[dict, List[dict]],
     #             data_samples: OptSampleList = None,
@@ -68,7 +64,8 @@ class Detr3D(MVXTwoStageDetector):
     #     elif mode == 'tensor':
     #         return self._forward(inputs, data_samples, **kwargs)
 
-    def extract_img_feat(self, img: Tensor, input_metas: List[dict]) -> dict:
+    def extract_img_feat(self, img: Tensor,
+                         input_metas: List[dict]) -> List[Tensor]:
         """Extract features of images."""
 
         B = img.size(0)
@@ -99,49 +96,44 @@ class Detr3D(MVXTwoStageDetector):
             img_feats_reshaped.append(img_feat.view(B, int(BN / B), C, H, W))
         return img_feats_reshaped
 
-    def extract_feat(self, batch_inputs_dict: dict,
-                     batch_input_metas: List[dict]) -> tuple:
+    def extract_feat(self, batch_inputs_dict: Dict,
+                     batch_input_metas: List[dict]) -> List[Tensor]:
         """Extract features from images and points."""
         imgs = batch_inputs_dict.get('imgs', None)
         img_feats = self.extract_img_feat(imgs, batch_input_metas)
         return img_feats
 
-    def loss(
-            self,
-            batch_inputs_dict: Dict[List,
-                                    torch.Tensor],  ##original forward_train
-            batch_data_samples: List[Det3DDataSample],
-            **kwargs) -> List[Det3DDataSample]:
+    def _forward(self):
+        raise NotImplementedError(f'tensor mode is yet to add')
+
+    ##original forward_train
+    def loss(self, batch_inputs_dict: Dict[List, Tensor],
+             batch_data_samples: List[Det3DDataSample],
+             **kwargs) -> List[Det3DDataSample]:
 
         batch_input_metas = [item.metainfo for item in batch_data_samples]
         batch_input_metas = self.add_lidar2img(batch_input_metas)
+        img_feats = self.extract_feat(batch_inputs_dict, batch_input_metas)
+        outs = self.pts_bbox_head(img_feats, batch_input_metas, **kwargs)
+
         batch_gt_instances = [
             item.gt_instances_3d for item in batch_data_samples
         ]
-        img_feats = self.extract_feat(batch_inputs_dict, batch_input_metas)
-        outs = self.pts_bbox_head(img_feats, batch_input_metas, **kwargs)
         loss_inputs = [batch_gt_instances, outs]
         losses_pts = self.pts_bbox_head.loss_by_feat(*loss_inputs)
-        ### dense_head.loss: forward and gather
-        ### refer to \mmdet3d-latest\mmdet3d\models\dense_heads\base_mono3d_dense_head.py
-        # outs = self.pts_bbox_head(pts_feats, img_metas)
-        # loss_inputs = [gt_bboxes_3d, gt_labels_3d, outs]## this is the forward_train in pts_bbox_head
-        # losses = self.pts_bbox_head.loss(*loss_inputs)
+
         return losses_pts
 
-    def predict(
-            self,
-            batch_inputs_dict: Dict[str,
-                                    Optional[Tensor]],  #original simple_test
-            batch_data_samples: List[Det3DDataSample],
-            **kwargs) -> List[Det3DDataSample]:
+    #original simple_test
+    def predict(self, batch_inputs_dict: Dict[str, Optional[Tensor]],
+                batch_data_samples: List[Det3DDataSample],
+                **kwargs) -> List[Det3DDataSample]:
+
         batch_input_metas = [item.metainfo for item in batch_data_samples]
         batch_input_metas = self.add_lidar2img(batch_input_metas)
         img_feats = self.extract_feat(batch_inputs_dict, batch_input_metas)
-        bbox_list = [dict() for i in range(len(batch_input_metas))]
-
-        #forward_pts_train in old version
         outs = self.pts_bbox_head(img_feats, batch_input_metas)
+
         results_list_3d = self.pts_bbox_head.predict_by_feat(
             outs, batch_input_metas, **kwargs)  #rescale in kwargs
 
@@ -150,7 +142,7 @@ class Detr3D(MVXTwoStageDetector):
         return detsamples
 
     #temporary slow function
-    def add_lidar2img(self, batch_input_metas: List[dict]) -> List[dict]:
+    def add_lidar2img(self, batch_input_metas: List[Dict]) -> List[Dict]:
         for meta in batch_input_metas:
             l2i = list()
             for i in range(len(meta['cam2img'])):
