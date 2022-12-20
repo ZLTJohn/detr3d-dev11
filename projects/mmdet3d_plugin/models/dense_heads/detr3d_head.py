@@ -150,15 +150,15 @@ class Detr3DHead(DETRHead):
             tmp[..., 4:5] += reference[..., 2:3]
             tmp[..., 4:5] = tmp[..., 4:5].sigmoid()
 
-            tmp[...,
-                0:1] = (tmp[..., 0:1] * (self.pc_range[3] - self.pc_range[0]) +
-                        self.pc_range[0])
-            tmp[...,
-                1:2] = (tmp[..., 1:2] * (self.pc_range[4] - self.pc_range[1]) +
-                        self.pc_range[1])
-            tmp[...,
-                4:5] = (tmp[..., 4:5] * (self.pc_range[5] - self.pc_range[2]) +
-                        self.pc_range[2])
+            tmp[..., 0:1] = \
+                tmp[..., 0:1] * (self.pc_range[3] - self.pc_range[0]) \
+                + self.pc_range[0]
+            tmp[..., 1:2] = \
+                tmp[..., 1:2] * (self.pc_range[4] - self.pc_range[1]) \
+                + self.pc_range[1]
+            tmp[..., 4:5] = \
+                tmp[..., 4:5] * (self.pc_range[5] - self.pc_range[2]) \
+                + self.pc_range[2]
 
             # TODO: check if using sigmoid
             outputs_coord = tmp
@@ -181,13 +181,13 @@ class Detr3DHead(DETRHead):
             cls_score: Tensor,  #[query, 1]
             bbox_pred: Tensor,  #[query, 8]
             gt_instances: InstanceList) -> Tuple[Tensor, ...]:
-        gt_bboxes = gt_instances.bboxes_3d  #[num_gt, 7]
+
         # turn bottm center into gravity center
+        gt_bboxes = gt_instances.bboxes_3d  #[num_gt, 7]
         gt_bboxes = torch.cat(
             (gt_bboxes.gravity_center, gt_bboxes.tensor[:, 3:]), dim=1)
 
         gt_labels = gt_instances.labels_3d  #[num_gt, 1]
-        num_bboxes = bbox_pred.size(0)
         # assigner and sampler,PseudoSampler
         assign_result = self.assigner.assign(bbox_pred,
                                              cls_score,
@@ -201,6 +201,7 @@ class Detr3DHead(DETRHead):
         neg_inds = sampling_result.neg_inds
 
         # label targets
+        num_bboxes = bbox_pred.size(0)
         labels = gt_bboxes.new_full((num_bboxes, ),
                                     self.num_classes,
                                     dtype=torch.long)
@@ -215,8 +216,6 @@ class Detr3DHead(DETRHead):
         bbox_weights = torch.zeros_like(bbox_pred)
         bbox_weights[
             pos_inds] = 1.0  #only matched query will learn from bbox coord
-        # if (gt_labels.shape[0]==0):
-        #     breakpoint()
         # DETR
         if sampling_result.pos_gt_bboxes.shape[
                 0] == 0:  #fix empty gt bug in multi gpu training

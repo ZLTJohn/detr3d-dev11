@@ -52,18 +52,6 @@ class Detr3D(MVXTwoStageDetector):
         self.gtvis_range = gtvis_range
         self.vis_count = vis_count
 
-    # def forward(self,
-    #             inputs: Union[dict, List[dict]],
-    #             data_samples: OptSampleList = None,
-    #             mode: str = 'tensor',
-    #             **kwargs) -> ForwardResults:
-    #     if mode == 'loss':
-    #         return self.loss(inputs, data_samples, **kwargs)
-    #     elif mode == 'predict':
-    #         return self.predict(inputs, data_samples, **kwargs)
-    #     elif mode == 'tensor':
-    #         return self._forward(inputs, data_samples, **kwargs)
-
     def extract_img_feat(self, img: Tensor,
                          input_metas: List[dict]) -> List[Tensor]:
         """Extract features of images."""
@@ -89,7 +77,7 @@ class Detr3D(MVXTwoStageDetector):
             return None
         if self.with_img_neck:
             img_feats = self.img_neck(img_feats)
-        ## img_feats == super().extract_img_feat(self,img,input_metas)
+
         img_feats_reshaped = []
         for img_feat in img_feats:
             BN, C, H, W = img_feat.size()
@@ -141,7 +129,7 @@ class Detr3D(MVXTwoStageDetector):
                                                  results_list_3d)
         return detsamples
 
-    #temporary slow function
+    #may need speed-up
     def add_lidar2img(self, batch_input_metas: List[Dict]) -> List[Dict]:
         for meta in batch_input_metas:
             l2i = list()
@@ -152,7 +140,8 @@ class Detr3D(MVXTwoStageDetector):
             meta['lidar2img'] = l2i
         return batch_input_metas
 
-
+#https://github.com/open-mmlab/mmdetection3d/pull/2110
+update_info_BUG_FIX=True 
 def get_lidar2img(cam2img, lidar2cam):
     """Get the projection matrix of lidar2img.
 
@@ -163,10 +152,11 @@ def get_lidar2img(cam2img, lidar2cam):
     Returns:
         torch.Tensor: transformation matrix with shape 4x4.
     """
-    lidar2cam_r = lidar2cam[:3, :3]  #fix translation bug
-    lidar2cam_t = lidar2cam[:3, 3]
-    lidar2cam_t = torch.matmul(lidar2cam_t, lidar2cam_r.T)
-    lidar2cam[:3, 3] = lidar2cam_t
+    if update_info_BUG_FIX == False:
+        lidar2cam_r = lidar2cam[:3, :3]
+        lidar2cam_t = lidar2cam[:3, 3]
+        lidar2cam_t = torch.matmul(lidar2cam_t, lidar2cam_r.T)
+        lidar2cam[:3, 3] = lidar2cam_t
     if cam2img.shape == (3, 3):
         temp = cam2img.new_zeros(4, 4)
         temp[:3, :3] = cam2img
