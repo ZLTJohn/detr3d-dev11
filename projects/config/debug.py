@@ -27,9 +27,10 @@ input_modality = dict(use_lidar=False,
                       use_map=False,
                       use_external=False)
 
-default_scope = 'mmdet3d'  # that means type='Detr3D' will be processed as 'mmdet3d.Detr3D'
+default_scope = 'mmdet3d'
+# this means type='Detr3D' will be processed as 'mmdet3d.Detr3D'
 model = dict(
-    type='Detr3D_old',
+    type='Detr3D',
     use_grid_mask=True,
     data_preprocessor=dict(type='Det3DDataPreprocessor',
                            mean=[103.530, 116.280, 123.675],
@@ -122,28 +123,31 @@ model = dict(
 dataset_type = 'NuScenesDataset'
 data_root = 'data/nus_v2/'
 
-file_client_args = dict(backend='disk')
-train_pipeline = [  # incorrect!!!!
-    dict(type='LoadMultiViewImageFromFiles', to_float32=True),
-    dict(type='PhotoMetricDistortionMultiViewImage'),
-    dict(type='LoadAnnotations3D',
-         with_bbox_3d=True,
-         with_label_3d=True,
-         with_attr_label=False),
-    dict(type='ObjectRangeFilter', point_cloud_range=point_cloud_range),
-    dict(type='ObjectNameFilter', classes=class_names),
-    # dict(type='LidarBox3dVersionTransfrom'),  #petr's solution
-    dict(type='NormalizeMultiviewImage', **img_norm_cfg),
-    dict(type='PadMultiViewImage', size_divisor=32),
-    dict(type='Pack3DDetInputs', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
-]
-
 test_transforms = [
     dict(type='RandomResize3D',
          scale=(1600, 900),
          ratio_range=(1., 1.),
          keep_ratio=True)
 ]
+train_transforms = test_transforms
+
+file_client_args = dict(backend='disk')
+train_pipeline = [
+    dict(type='LoadMultiViewImageFromFiles', to_float32=True, num_views=6),
+    dict(type='PhotoMetricDistortionMultiViewImage'),
+    dict(type='LoadAnnotations3D',
+         with_bbox_3d=True,
+         with_label_3d=True,
+         with_attr_label=False),
+    dict(type='MultiViewWrapper', transforms=train_transforms),
+    dict(type='ObjectRangeFilter', point_cloud_range=point_cloud_range),
+    dict(type='ObjectNameFilter', classes=class_names),
+    # # dict(type='LidarBox3dVersionTransfrom'),  #petr's solution
+    # dict(type='NormalizeMultiviewImage', **img_norm_cfg),
+    # dict(type='PadMultiViewImage', size_divisor=32),
+    dict(type='Pack3DDetInputs', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
+]
+
 test_pipeline = [
     dict(type='LoadMultiViewImageFromFiles', to_float32=True, num_views=6),
     # dict(type='NormalizeMultiviewImage', **img_norm_cfg),
@@ -163,8 +167,9 @@ data_prefix = dict(pts='',
 
 train_dataloader = dict(
     batch_size=1,
-    num_workers=0,
-    persistent_workers=False,
+    num_workers=4,
+    persistent_workers=True,
+    drop_last=False,
     sampler=dict(type='DefaultSampler', shuffle=True),
     dataset=dict(
         type=dataset_type,
@@ -182,12 +187,12 @@ train_dataloader = dict(
 
 val_dataloader = dict(batch_size=1,
                       num_workers=4,
-                      persistent_workers=False,
+                      persistent_workers=True,
                       drop_last=False,
                       sampler=dict(type='DefaultSampler', shuffle=False),
                       dataset=dict(type=dataset_type,
                                    data_root=data_root,
-                                   ann_file='nuscenes_infos_val_wrong_trans.pkl',
+                                   ann_file='infos_val_bugfix.pkl',
                                    load_type='frame_based',
                                    pipeline=test_pipeline,
                                    metainfo=metainfo,
@@ -200,15 +205,17 @@ test_dataloader = val_dataloader
 
 val_evaluator = dict(type='NuScenesMetric',
                      data_root=data_root,
-                     ann_file=data_root + 'nuscenes_infos_val_wrong_trans.pkl',
+                     ann_file=data_root + 'nuscenes_infos_val.pkl',
                      metric='bbox')
 test_evaluator = val_evaluator
 
 optim_wrapper = dict(
     type='OptimWrapper',
-    optimizer=dict(_delete_=True, type='AdamW', lr=2e-4, weight_decay=0.01),
+    optimizer=dict(type='AdamW', lr=2e-4, weight_decay=0.01),
     paramwise_cfg=dict(custom_keys={'img_backbone': dict(lr_mult=0.1)}),
-    grad_clip=dict(max_norm=35, norm_type=2))
+    clip_grad=dict(max_norm=35, norm_type=2),
+)
+
 # learning policy
 param_scheduler = [
     dict(type='LinearLR',
@@ -221,8 +228,17 @@ param_scheduler = [
          begin=0,
          end=24,
          T_max=24,
-         eta_min=5e-5)
+         eta_min_ratio=1e-3)
 ]
+
+vis_backends = [dict(type='TensorboardVisBackend')]
+visualizer = dict(type='Det3DLocalVisualizer',
+                  vis_backends=vis_backends,
+                  name='visualizer')
+# ERROR: pip's dependency resolver does not currently take into account all the packages that are installed. This behaviour is the source of the following dependency conflicts.
+# jupyter-packaging 0.12.3 requires setuptools>=60.2.0, but you have setuptools 58.0.4 which is incompatible.
+# setuptools 65 downgrades to 58.In mmlab-node we use setuptools 61 but occurs NO errors
+
 total_epochs = 24
 checkpoint_config = dict(interval=1, max_keep_ckpts=1)
 train_cfg = dict(type='EpochBasedTrainLoop',
@@ -232,49 +248,24 @@ val_cfg = dict(type='ValLoop')
 test_cfg = dict(type='TestLoop')
 # load_from='/home/chenxuanyao/checkpoint/fcos3d_detr3d.pth'
 load_from = 'ckpts/fcos3d_yue.pth'
-
-#test time
-# mAP: 0.3450                                                                                                                                                                                                                                  
-# mATE: 0.7740
-# mASE: 0.2675
-# mAOE: 0.3960
-# mAVE: 0.8737
-# mAAE: 0.2156
-# NDS: 0.4198
-# Eval time: 161.5s
+# mAP: 0.3546
+# mATE: 0.7639
+# mASE: 0.2695
+# mAOE: 0.3953
+# mAVE: 0.8853
+# mAAE: 0.2108
+# NDS: 0.4248
+# Eval time: 120.8s
 
 # Per-class results:
 # Object Class    AP      ATE     ASE     AOE     AVE     AAE
-# car     0.534   0.565   0.152   0.071   0.907   0.214
-# truck   0.285   0.839   0.213   0.114   0.984   0.229
-# bus     0.346   0.924   0.199   0.117   2.060   0.379
-# trailer 0.166   1.108   0.230   0.551   0.734   0.126
-# construction_vehicle    0.082   1.057   0.446   1.013   0.125   0.387
-# pedestrian      0.426   0.688   0.294   0.508   0.459   0.195
-# motorcycle      0.343   0.696   0.260   0.475   1.268   0.180
-# bicycle 0.275   0.691   0.275   0.578   0.452   0.015
-# traffic_cone    0.521   0.555   0.314   nan     nan     nan
-# barrier 0.473   0.619   0.293   0.138   nan     nan
-
-
-# mAP: 0.3450
-# mATE: 0.7740
-# mASE: 0.2675
-# mAOE: 0.3960
-# mAVE: 0.8737
-# mAAE: 0.2156
-# NDS: 0.4198
-# Eval time: 120.2s
-
-# Per-class results:
-# Object Class    AP      ATE     ASE     AOE     AVE     AAE
-# car     0.534   0.565   0.152   0.071   0.907   0.214
-# truck   0.285   0.839   0.213   0.114   0.984   0.229
-# bus     0.346   0.924   0.199   0.117   2.060   0.379
-# trailer 0.166   1.108   0.230   0.551   0.734   0.126
-# construction_vehicle    0.082   1.057   0.446   1.013   0.125   0.387
-# pedestrian      0.426   0.688   0.294   0.508   0.459   0.195
-# motorcycle      0.343   0.696   0.260   0.475   1.268   0.180
-# bicycle 0.275   0.691   0.275   0.578   0.452   0.015
-# traffic_cone    0.521   0.555   0.314   nan     nan     nan
-# barrier 0.473   0.619   0.293   0.138   nan     nan
+# car     0.549   0.542   0.150   0.071   0.916   0.209
+# truck   0.293   0.815   0.211   0.101   1.043   0.229
+# bus     0.368   0.851   0.196   0.117   1.865   0.316
+# trailer 0.170   1.127   0.253   0.500   0.886   0.180
+# construction_vehicle    0.084   1.098   0.453   1.033   0.160   0.389
+# pedestrian      0.422   0.705   0.298   0.504   0.464   0.197
+# motorcycle      0.346   0.704   0.258   0.463   1.259   0.143
+# bicycle 0.299   0.656   0.272   0.640   0.489   0.024
+# traffic_cone    0.539   0.525   0.310   nan     nan     nan
+# barrier 0.475   0.616   0.294   0.129   nan     nan

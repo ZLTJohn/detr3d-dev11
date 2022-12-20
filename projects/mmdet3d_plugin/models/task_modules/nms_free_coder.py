@@ -16,7 +16,6 @@ class NMSFreeCoder(BaseBBoxCoder):
         max_num (int): Max number to be kept. Default: 100.
         score_threshold (float): Threshold to filter boxes based on score.
             Default: None.
-        code_size (int): Code size of bboxes. Default: 9
     """
 
     def __init__(self,
@@ -45,8 +44,8 @@ class NMSFreeCoder(BaseBBoxCoder):
                 shape [num_query, cls_out_channels]. Note \
                 cls_out_channels should includes background.
             bbox_preds (Tensor): Outputs from the regression \
-                head with normalized coordinate format (cx, cy, w, l, cz, h, rot_sine, rot_cosine, vx, vy). \
-                Shape [num_query, 9].
+                head with normalized coordinate format (cx, cy, l, w, cz, h, rot_sine, rot_cosine, vx, vy). \
+                Shape [num_query, 10].
         Returns:
             list[dict]: Decoded boxes.
         """
@@ -58,9 +57,8 @@ class NMSFreeCoder(BaseBBoxCoder):
         bbox_index = indexes // self.num_classes
         bbox_preds = bbox_preds[bbox_index]
 
-        final_box_preds = denormalize_bbox(
-            bbox_preds, None
-        )  #denormalized_bboxes = torch.cat([cx, cy, cz, w, l, h, rot, vx, vy], dim=-1)
+        # [[cx, cy, cz, l, w, h, rot, vx, vy]]
+        final_box_preds = denormalize_bbox(bbox_preds, None)  
         final_scores = scores
         final_preds = labels
 
@@ -101,8 +99,8 @@ class NMSFreeCoder(BaseBBoxCoder):
                 shape [nb_dec, bs, num_query, cls_out_channels]. Note \
                 cls_out_channels should includes background.
             all_bbox_preds (Tensor): Sigmoid outputs from the regression \
-                head with normalized coordinate format (cx, cy, w, l, cz, h, rot_sine, rot_cosine, vx, vy). \
-                Shape [nb_dec, bs, num_query, 9].
+                head with normalized coordinate format (cx, cy, l, w, cz, h, rot_sine, rot_cosine, vx, vy). \
+                Shape [nb_dec, bs, num_query, 10].
         Returns:
             list[dict]: Decoded boxes.
         """

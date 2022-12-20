@@ -22,8 +22,6 @@ from torch import Tensor
 from projects.mmdet3d_plugin.models.task_modules.util import normalize_bbox
 from projects.mmdet3d_plugin.models.utils.old_env import force_fp32
 
-# from mmcv.runner import force_fp32#failed
-
 
 @MODELS.register_module()
 class Detr3DHead(DETRHead):
@@ -36,6 +34,10 @@ class Detr3DHead(DETRHead):
             the outputs of encoder.
         transformer (obj:`ConfigDict`): ConfigDict is used for building
             the Encoder and Decoder.
+        bbox_coder (obj:`ConfigDict`): Configs to build the bbox coder
+        num_cls_fcs (int) : the number of layers in cls and reg branch
+        code_weights (List[double]) : loss weights of (cx,cy,l,w,cz,h,sin(φ),cos(φ),v_x,v_y)
+        code_size (int) : size of code_weights
     """
 
     def __init__(
@@ -46,8 +48,7 @@ class Detr3DHead(DETRHead):
             transformer=None,
             bbox_coder=None,
             num_cls_fcs=2,
-            code_weights=[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.2,
-                          0.2],  ## origin for nus
+            code_weights=[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.2, 0.2],
             code_size=10,
             **kwargs):
         self.with_box_refine = with_box_refine
@@ -59,7 +60,7 @@ class Detr3DHead(DETRHead):
 
         self.bbox_coder = build_bbox_coder(bbox_coder)
         self.pc_range = self.bbox_coder.pc_range
-        self.num_cls_fcs = num_cls_fcs - 1  #？？？这不就没用了么...
+        self.num_cls_fcs = num_cls_fcs - 1
         super(Detr3DHead, self).__init__(*args,
                                          transformer=transformer,
                                          **kwargs)
@@ -102,7 +103,7 @@ class Detr3DHead(DETRHead):
             self.reg_branches = _get_clones(reg_branch, num_pred)
         else:
             self.cls_branches = nn.ModuleList(
-                [fc_cls for _ in range(num_pred)])  #so shared weights？
+                [fc_cls for _ in range(num_pred)])
             self.reg_branches = nn.ModuleList(
                 [reg_branch for _ in range(num_pred)])
 
@@ -119,17 +120,29 @@ class Detr3DHead(DETRHead):
                 nn.init.constant_(m[-1].bias, bias_init)
 
     def forward(self, mlvl_feats: List[Tensor], img_metas: List[Dict],
-                **kwargs) -> Dict[str, Tensor]:  #forward
-
+                **kwargs) -> Dict[str, Tensor]:
+        """Forward function.
+        Args:
+            mlvl_feats (List[Tensor]): Features from the upstream
+                network, each is a 5D-tensor with shape
+                (B, N, C, H, W).
+        Returns:
+            all_cls_scores (Tensor): Outputs from the classification head, \
+                shape [nb_dec, bs, num_query, cls_out_channels]. Note \
+                cls_out_channels should includes background.
+            all_bbox_preds (Tensor): Sigmoid outputs from the regression \
+                head with normalized coordinate format (cx, cy, l, w, cz, h, sin(φ), cos(φ), vx, vy). \
+                Shape [nb_dec, bs, num_query, 10].
+        """
         query_embeds = self.query_embedding.weight
         hs, init_reference, inter_references = self.transformer(
             mlvl_feats,
             query_embeds,
             reg_branches=self.reg_branches
-            if self.with_box_refine else None,  # noqa:E501
+            if self.with_box_refine else None,
             img_metas=img_metas,
             **kwargs)
-        hs = hs.permute(0, 2, 1, 3)  #what is this
+        hs = hs.permute(0, 2, 1, 3)
         outputs_classes = []
         outputs_coords = []
 
@@ -139,10 +152,8 @@ class Detr3DHead(DETRHead):
             else:
                 reference = inter_references[lvl - 1]
             reference = inverse_sigmoid(reference)
-            outputs_class = self.cls_branches[lvl](
-                hs[lvl])  #multiple forward？ 这里主要还是把format同步成target的样子
-            tmp = self.reg_branches[lvl](hs[lvl])
-            # print('tmp shape: {}'.format(tmp.shape))  # tmp shape: torch.Size([1, 900, 8])
+            outputs_class = self.cls_branches[lvl](hs[lvl]) 
+            tmp = self.reg_branches[lvl](hs[lvl])   # shape: ([B, num_q, 10])
             # TODO: check the shape of reference
             assert reference.shape[-1] == 3
             tmp[..., 0:2] += reference[..., 0:2]
@@ -165,7 +176,6 @@ class Detr3DHead(DETRHead):
             outputs_classes.append(outputs_class)
             outputs_coords.append(outputs_coord)
 
-        # print('  '*3+'head: restrore outputs:',time.time()-__,'ms')
         outputs_classes = torch.stack(outputs_classes)
         outputs_coords = torch.stack(outputs_coords)
         outs = {
@@ -178,17 +188,17 @@ class Detr3DHead(DETRHead):
 
     def _get_target_single(
             self,
-            cls_score: Tensor,  #[query, 1]
-            bbox_pred: Tensor,  #[query, 8]
-            gt_instances: InstanceList) -> Tuple[Tensor, ...]:
-
+            cls_score: Tensor,  #[query, num_cls]
+            bbox_pred: Tensor,  #[query, 10]
+            gt_instances_3d: InstanceList) -> Tuple[Tensor, ...]:
+        """Compute regression and classification targets for a single image."""
         # turn bottm center into gravity center
-        gt_bboxes = gt_instances.bboxes_3d  #[num_gt, 7]
+        gt_bboxes = gt_instances_3d.bboxes_3d  #[num_gt, 9]
         gt_bboxes = torch.cat(
             (gt_bboxes.gravity_center, gt_bboxes.tensor[:, 3:]), dim=1)
 
-        gt_labels = gt_instances.labels_3d  #[num_gt, 1]
-        # assigner and sampler,PseudoSampler
+        gt_labels = gt_instances_3d.labels_3d  #[num_gt, num_cls]
+        # assigner and sampler: PseudoSampler
         assign_result = self.assigner.assign(bbox_pred,
                                              cls_score,
                                              gt_bboxes,
@@ -210,17 +220,16 @@ class Detr3DHead(DETRHead):
             num_bboxes)  #all query should learn its classification
 
         # bbox targets
-        bbox_targets = torch.zeros_like(
-            bbox_pred)[..., :self.code_size -
-                       1]  #theta in gt_bbox here is still a single scalar
+        #theta in gt_bbox here is still a single scalar
+        bbox_targets = torch.zeros_like(bbox_pred)[..., :self.code_size -1]
         bbox_weights = torch.zeros_like(bbox_pred)
-        bbox_weights[
-            pos_inds] = 1.0  #only matched query will learn from bbox coord
-        # DETR
-        if sampling_result.pos_gt_bboxes.shape[
-                0] == 0:  #fix empty gt bug in multi gpu training
-            sampling_result.pos_gt_bboxes = sampling_result.pos_gt_bboxes.reshape(
-                0, self.code_size - 1)
+        #only matched query will learn from bbox coord
+        bbox_weights[pos_inds] = 1.0  
+
+        # fix empty gt bug in multi gpu training
+        if sampling_result.pos_gt_bboxes.shape[0] == 0: 
+            sampling_result.pos_gt_bboxes = \
+                sampling_result.pos_gt_bboxes.reshape(0, self.code_size - 1)
 
         bbox_targets[pos_inds] = sampling_result.pos_gt_bboxes
         return (labels, label_weights, bbox_targets, bbox_weights, pos_inds,
@@ -228,15 +237,39 @@ class Detr3DHead(DETRHead):
 
     def get_targets(
             self,  #get_targets
-            batch_cls_scores: List[Tensor],  # bs[num_q,1]
-            batch_bbox_preds: List[Tensor],  # bs[num_q,8]
-            batch_gt_instances: InstanceList) ->...:
+            batch_cls_scores: List[Tensor],  # bs[num_q,num_cls]
+            batch_bbox_preds: List[Tensor],  # bs[num_q,10]
+            batch_gt_instances_3d: InstanceList) ->...:
+        """"Compute regression and classification targets for a batch image for a single decoder layer
 
+        Args:
+            batch_cls_scores (list[Tensor]): Box score logits from a single
+                decoder layer for each image with shape [num_query,
+                cls_out_channels].
+            batch_bbox_preds (list[Tensor]): Sigmoid outputs from a single
+                decoder layer for each image, with normalized coordinate
+                (cx,cy,l,w,cz,h,sin(φ),cos(φ),v_x,v_y) and shape [num_query, 10]
+            batch_gt_instances_3d (list[:obj:`InstanceData`]): Batch of
+                gt_instance.  It usually includes ``bboxes_3d``、``labels_3d``.
+        Returns:
+            tuple: a tuple containing the following targets.
+                - labels_list (list[Tensor]): Labels for all images.
+                - label_weights_list (list[Tensor]): Label weights for all \
+                    images.
+                - bbox_targets_list (list[Tensor]): BBox targets for all \
+                    images.
+                - bbox_weights_list (list[Tensor]): BBox weights for all \
+                    images.
+                - num_total_pos (int): Number of positive samples in all \
+                    images.
+                - num_total_neg (int): Number of negative samples in all \
+                    images.
+        """
         (labels_list, label_weights_list, bbox_targets_list, bbox_weights_list,
          pos_inds_list, neg_inds_list) = multi_apply(self._get_target_single,
                                                      batch_cls_scores,
                                                      batch_bbox_preds,
-                                                     batch_gt_instances)
+                                                     batch_gt_instances_3d)
 
         num_total_pos = sum((inds.numel() for inds in pos_inds_list))
         num_total_neg = sum((inds.numel() for inds in neg_inds_list))
@@ -245,19 +278,32 @@ class Detr3DHead(DETRHead):
 
     def loss_by_feat_single(
             self,
-            batch_cls_scores: Tensor,  #bs,num_q,1
-            batch_bbox_preds: Tensor,  #bs,num_q,8
-            batch_gt_instances: InstanceList) ->...:
-
+            batch_cls_scores: Tensor,  #bs,num_q,num_cls
+            batch_bbox_preds: Tensor,  #bs,num_q,10
+            batch_gt_instances_3d: InstanceList) ->...:
+        """"Loss function for outputs from a single decoder layer of a single
+            feature level.
+        Args:
+           batch_cls_scores (Tensor): Box score logits from a single
+                decoder layer for batched images with shape [num_query,
+                cls_out_channels].
+            batch_bbox_preds (Tensor): Sigmoid outputs from a single
+                decoder layer for batched images, with normalized coordinate
+                (cx,cy,l,w,cz,h,sin(φ),cos(φ),v_x,v_y) and shape [num_query, 10]
+            batch_gt_instances_3d (list[:obj:`InstanceData`]): Batch of
+                gt_instance_3d.  It usually includes ``bboxes_3d``、``labels_3d``.
+        Returns:
+            tulple(Tensor, Tensor): cls and reg loss for outputs from
+                a single decoder layer.
+        """
         batch_size = batch_cls_scores.size(0)  #batch size
         cls_scores_list = [batch_cls_scores[i] for i in range(batch_size)]
         bbox_preds_list = [batch_bbox_preds[i] for i in range(batch_size)]
         cls_reg_targets = self.get_targets(cls_scores_list, bbox_preds_list,
-                                           batch_gt_instances)
+                                           batch_gt_instances_3d)
 
         (labels_list, label_weights_list, bbox_targets_list, bbox_weights_list,
-         num_total_pos, num_total_neg
-         ) = cls_reg_targets  #here we get [bs, query, code_size-1]
+         num_total_pos, num_total_neg) = cls_reg_targets  
         labels = torch.cat(labels_list, 0)
         label_weights = torch.cat(label_weights_list, 0)
         bbox_targets = torch.cat(bbox_targets_list, 0)
@@ -277,7 +323,7 @@ class Detr3DHead(DETRHead):
                                  labels,
                                  label_weights,
                                  avg_factor=cls_avg_factor)
-        # weights is query-wise 用于为每个query的loss加权，加权后统计loss和，然后用avg_factor除一下。
+
         # Compute the average number of gt boxes across all gpus, for
         # normalization purposes
         num_total_pos = loss_cls.new_tensor([num_total_pos])
@@ -287,8 +333,8 @@ class Detr3DHead(DETRHead):
         batch_bbox_preds = batch_bbox_preds.reshape(-1,
                                                     batch_bbox_preds.size(-1))
         normalized_bbox_targets = normalize_bbox(bbox_targets, self.pc_range)
-        isnotnan = torch.isfinite(normalized_bbox_targets).all(
-            dim=-1)  #neg_query is all 0, log(0) is NaN
+        #neg_query is all 0, log(0) is NaN
+        isnotnan = torch.isfinite(normalized_bbox_targets).all(dim=-1)
         bbox_weights = bbox_weights * self.code_weights
 
         loss_bbox = self.loss_bbox(
@@ -305,45 +351,45 @@ class Detr3DHead(DETRHead):
     @force_fp32(apply_to=('preds_dicts'))
     def loss_by_feat(
             self,
-            batch_gt_instances: InstanceList,
+            batch_gt_instances_3d: InstanceList,
             preds_dicts: Dict[str, Tensor],
-            batch_gt_instances_ignore: OptInstanceList = None) -> Dict:
+            batch_gt_instances_3d_ignore: OptInstanceList = None) -> Dict:
+        """Compute loss of the head.
 
-        assert batch_gt_instances_ignore is None, \
+        Args:
+            batch_gt_instances_3d (list[:obj:`InstanceData`]): Batch of
+                gt_instance_3d.  It usually includes ``bboxes_3d``、`
+                `labels_3d``、``depths``、``centers_2d`` and attributes.
+                gt_instance.  It usually includes ``bboxes``、``labels``.
+            batch_gt_instances_3d_ignore (list[:obj:`InstanceData`], Optional):
+                NOT supported.
+                Defaults to None.
+
+        Returns:
+            dict[str, Tensor]: A dictionary of loss components.
+        """
+        assert batch_gt_instances_3d_ignore is None, \
             f'{self.__class__.__name__} only supports ' \
-            f'for batch_gt_instances_ignore setting to None.'
-        all_cls_scores = preds_dicts['all_cls_scores']  # num_dec,bs,num_q,1
-        all_bbox_preds = preds_dicts['all_bbox_preds']  # num_dec,bs,num_q,8
+            f'for batch_gt_instances_3d_ignore setting to None.'
+        all_cls_scores = preds_dicts['all_cls_scores']  # num_dec,bs,num_q,num_cls
+        all_bbox_preds = preds_dicts['all_bbox_preds']  # num_dec,bs,num_q,10
         enc_cls_scores = preds_dicts['enc_cls_scores']
         enc_bbox_preds = preds_dicts['enc_bbox_preds']
 
-        num_dec_layers = len(all_cls_scores)
-        batch_gt_instances_list = [
-            batch_gt_instances for _ in range(num_dec_layers)
-        ]
-        # batch_gt_instances_ignore_list = [batch_gt_instances_ignore
-        #                                     for _ in range(num_dec_layers)]
-
-        # all_gt_bboxes_list = [gt_bboxes_list for _ in range(num_dec_layers)]
-        # all_gt_labels_list = [gt_labels_list for _ in range(num_dec_layers)]
-        # all_gt_bboxes_ignore_list = [
-        #     gt_bboxes_ignore for _ in range(num_dec_layers)
-        # ]
-
         #calculate loss for each decoder layer
+        num_dec_layers = len(all_cls_scores)
+        batch_gt_instances_3d_list = [
+            batch_gt_instances_3d for _ in range(num_dec_layers)
+        ]
         losses_cls, losses_bbox = multi_apply(self.loss_by_feat_single,
                                               all_cls_scores, all_bbox_preds,
-                                              batch_gt_instances_list)
+                                              batch_gt_instances_3d_list)
 
         loss_dict = dict()
         # loss of proposal generated from encode feature map.
         if enc_cls_scores is not None:
-            # binary_labels_list = [
-            #     torch.zeros_like(gt_labels_list[i])
-            #     for i in range(len(all_gt_labels_list))
-            # ]
             enc_loss_cls, enc_losses_bbox = \
-                self.loss_by_feat_single(enc_cls_scores, enc_bbox_preds, batch_gt_instances_list)
+                self.loss_by_feat_single(enc_cls_scores, enc_bbox_preds, batch_gt_instances_3d_list)
             loss_dict['enc_loss_cls'] = enc_loss_cls
             loss_dict['enc_loss_bbox'] = enc_losses_bbox
 
@@ -364,10 +410,35 @@ class Detr3DHead(DETRHead):
                         preds_dicts,
                         img_metas,
                         rescale=False) -> InstanceList:
-        #-->
-        preds_dicts = self.bbox_coder.decode(
-            preds_dicts)  #sin theta & cosine theta ---> theta
-        num_samples = len(preds_dicts)  #batch size
+        """Transform network output for a batch into bbox predictions.
+
+        Args:
+            preds_dicts (Dict[str, Tensor]):
+                -all_cls_scores (Tensor): Outputs from the classification head,
+                    shape [nb_dec, bs, num_query, cls_out_channels]. Note
+                    cls_out_channels should includes background.
+                -all_bbox_preds (Tensor): Sigmoid outputs from the regression
+                    head with normalized coordinate format (cx, cy, l, w, cz, h, rot_sine, rot_cosine, v_x, v_y).
+                    Shape [nb_dec, bs, num_query, 10].
+            batch_img_metas (list[dict]): Meta information of each image, e.g.,
+                image size, scaling factor, etc.
+            rescale (bool): If True, return boxes in original image space.
+                Defaults to False.
+
+        Returns:
+            list[:obj:`InstanceData`]: Object detection results of each image
+            after the post process. Each item usually contains following keys.
+
+                - scores_3d (Tensor): Classification scores, has a shape
+                  (num_instance, )
+                - labels_3d (Tensor): Labels of bboxes, has a shape
+                  (num_instances, ).
+                - bboxes_3d (Tensor): Contains a tensor with shape
+                  (num_instances, C), where C >= 7.
+        """
+        # sinθ & cosθ ---> θ
+        preds_dicts = self.bbox_coder.decode(preds_dicts)  
+        num_samples = len(preds_dicts)  # batch size
         ret_list = []
         for i in range(num_samples):
             results = InstanceData()

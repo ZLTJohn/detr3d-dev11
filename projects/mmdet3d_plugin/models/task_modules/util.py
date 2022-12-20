@@ -1,7 +1,16 @@
 import torch
+from torch import Tensor
+from typing import List
 
-
-def normalize_bbox(bboxes, pc_range):
+def normalize_bbox(bboxes: Tensor, pc_range: List) -> Tensor:
+    """ normalize bboxes
+        Args:
+            bboxes (Tensor): boxes with unnormalized
+                coordinates (cx,cy,cz,l,w,h,φ,v_x,v_y). Shape [num_gt, 9].
+            pc_range (List): Perception range of the detector
+        Returns:
+            normalized_bboxes (Tensor): boxes with normalized coordinates (cx,cy,l,w,cz,h,sin(φ),cos(φ),v_x,v_y) which are all in range [0, 1]. Shape [num_query, 10].
+    """
 
     cx = bboxes[..., 0:1]
     cy = bboxes[..., 1:2]
@@ -23,6 +32,14 @@ def normalize_bbox(bboxes, pc_range):
 
 
 def denormalize_bbox(normalized_bboxes, pc_range):
+    """ denormalize bboxes
+        Args:
+            normalized_bboxes (Tensor): boxes with normalized coordinates (cx,cy,l,w,cz,h,sin(φ),cos(φ),v_x,v_y) which are all in range [0, 1]. Shape [num_query, 10].
+            pc_range (List): Perception range of the detector
+        Returns:
+            denormalized_bboxes (Tensor): boxes with unnormalized
+                coordinates (cx,cy,cz,l,w,h,φ,v_x,v_y). Shape [num_gt, 9].
+    """
     # rotation
     rot_sine = normalized_bboxes[..., 6:7]
 
@@ -34,7 +51,7 @@ def denormalize_bbox(normalized_bboxes, pc_range):
     cy = normalized_bboxes[..., 1:2]
     cz = normalized_bboxes[..., 4:5]
 
-    # size
+    # size, the meaning of w,l may alter in different version of mmdet3d
     w = normalized_bboxes[..., 2:3]
     l = normalized_bboxes[..., 3:4]
     h = normalized_bboxes[..., 5:6]
