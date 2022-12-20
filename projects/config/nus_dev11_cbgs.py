@@ -4,6 +4,7 @@ _base_ = [
     '/home/zhenglt/mmdev11/mmdet3d-latest/configs/_base_/default_runtime.py'
 ]
 
+change img_norm_cfg in all configs files
 # plugin=True
 # plugin_dir='projects/mmdet3d_plugin/'
 custom_imports = dict(imports=['projects.mmdet3d_plugin'])

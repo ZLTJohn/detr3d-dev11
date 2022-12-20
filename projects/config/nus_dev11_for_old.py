@@ -187,7 +187,7 @@ val_dataloader = dict(batch_size=1,
                       sampler=dict(type='DefaultSampler', shuffle=False),
                       dataset=dict(type=dataset_type,
                                    data_root=data_root,
-                                   ann_file='nuscenes_infos_val.pkl',
+                                   ann_file='nuscenes_infos_val_wrong_trans.pkl',
                                    load_type='frame_based',
                                    pipeline=test_pipeline,
                                    metainfo=metainfo,
@@ -200,7 +200,7 @@ test_dataloader = val_dataloader
 
 val_evaluator = dict(type='NuScenesMetric',
                      data_root=data_root,
-                     ann_file=data_root + 'nuscenes_infos_val.pkl',
+                     ann_file=data_root + 'nuscenes_infos_val_wrong_trans.pkl',
                      metric='bbox')
 test_evaluator = val_evaluator
 
@@ -254,3 +254,29 @@ load_from = 'ckpts/fcos3d_yue.pth'
 # bicycle 0.275   0.691   0.275   0.578   0.452   0.015
 # traffic_cone    0.521   0.555   0.314   nan     nan     nan
 # barrier 0.473   0.619   0.293   0.138   nan     nan
+
+
+
+# After all changes
+# mAP: 0.3405
+
+# mATE: 0.7516
+# mASE: 0.2688
+# mAOE: 0.3750
+# mAVE: 0.8621
+# mAAE: 0.2080
+# NDS: 0.4237
+# Eval time: 124.2s
+
+# Per-class results:
+# Object Class    AP      ATE     ASE     AOE     AVE     AAE
+# car     0.513   0.590   0.153   0.066   0.932   0.197
+# truck   0.280   0.771   0.206   0.092   1.001   0.237
+# bus     0.356   0.860   0.193   0.131   1.826   0.370
+# trailer 0.179   1.110   0.234   0.564   0.950   0.159
+# construction_vehicle    0.080   0.988   0.444   0.947   0.120   0.330
+# pedestrian      0.397   0.683   0.305   0.532   0.469   0.200
+# motorcycle      0.338   0.712   0.255   0.359   1.194   0.158
+# bicycle 0.256   0.657   0.284   0.583   0.405   0.014
+# traffic_cone    0.508   0.542   0.323   nan     nan     nan
+# barrier 0.501   0.602   0.292   0.100   nan     nan

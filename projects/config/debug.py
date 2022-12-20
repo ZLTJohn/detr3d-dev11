@@ -13,8 +13,8 @@ point_cloud_range = [-51.2, -51.2, -5.0, 51.2, 51.2, 3.0]
 voxel_size = [0.2, 0.2, 8]
 
 img_norm_cfg = dict(mean=[103.530, 116.280, 123.675],
-                    std=[57.375, 57.120, 58.395],
-                    bgr_to_rgb=False)
+                    std=[1.0, 1.0, 1.0],
+                    to_rgb=False)
 # For nuScenes we usually do 10-class detection
 class_names = [
     'car', 'truck', 'construction_vehicle', 'bus', 'trailer', 'barrier',
@@ -25,25 +25,34 @@ input_modality = dict(use_lidar=False,
                       use_camera=True,
                       use_radar=False,
                       use_map=False,
-                      use_external=True)
+                      use_external=False)
 
-default_scope = 'mmdet3d'  # that means type='Detr3D' will be processed as 'mmdet3d.Detr3D'
+default_scope = 'mmdet3d'
+# this means type='Detr3D' will be processed as 'mmdet3d.Detr3D'
 model = dict(
-    type='Detr3D_old',
+    type='Detr3D',
     use_grid_mask=True,
     data_preprocessor=dict(type='Det3DDataPreprocessor',
-                           **img_norm_cfg,
+                           mean=[103.530, 116.280, 123.675],
+                           std=[1.0, 1.0, 1.0],
+                           bgr_to_rgb=False,
                            pad_size_divisor=32),
-    img_backbone=dict(type='VoVNet',
-                      spec_name='V-99-eSE',
-                      norm_eval=True,
+    img_backbone=dict(type='mmdet.ResNet',
+                      depth=101,
+                      num_stages=4,
+                      out_indices=(0, 1, 2, 3),
                       frozen_stages=1,
-                      input_ch=3,
-                      out_features=['stage2', 'stage3', 'stage4', 'stage5']),
+                      norm_cfg=dict(type='BN2d', requires_grad=False),
+                      norm_eval=True,
+                      style='caffe',
+                      dcn=dict(type='DCNv2',
+                               deform_groups=1,
+                               fallback_on_stride=False),
+                      stage_with_dcn=(False, False, True, True)),
     img_neck=dict(type='mmdet.FPN',
-                  in_channels=[256, 512, 768, 1024],
+                  in_channels=[256, 512, 1024, 2048],
                   out_channels=256,
-                  start_level=0,
+                  start_level=1,
                   add_extra_convs='on_output',
                   num_outs=4,
                   relu_before_extra_convs=True),
@@ -55,7 +64,6 @@ model = dict(
         sync_cls_avg_factor=True,
         with_box_refine=True,
         as_two_stage=False,
-        code_weights=[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.2, 0.2],
         transformer=dict(
             type='Detr3DTransformer',
             decoder=dict(
@@ -134,12 +142,17 @@ train_pipeline = [
     dict(type='MultiViewWrapper', transforms=train_transforms),
     dict(type='ObjectRangeFilter', point_cloud_range=point_cloud_range),
     dict(type='ObjectNameFilter', classes=class_names),
+    # # dict(type='LidarBox3dVersionTransfrom'),  #petr's solution
+    # dict(type='NormalizeMultiviewImage', **img_norm_cfg),
+    # dict(type='PadMultiViewImage', size_divisor=32),
     dict(type='Pack3DDetInputs', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
 ]
 
 test_pipeline = [
     dict(type='LoadMultiViewImageFromFiles', to_float32=True, num_views=6),
+    # dict(type='NormalizeMultiviewImage', **img_norm_cfg),
     dict(type='MultiViewWrapper', transforms=test_transforms),
+    # dict(type='PadMultiViewImage', size_divisor=32),
     dict(type='Pack3DDetInputs', keys=['img'])
 ]
 
@@ -159,20 +172,18 @@ train_dataloader = dict(
     drop_last=False,
     sampler=dict(type='DefaultSampler', shuffle=True),
     dataset=dict(
-        type='CBGSDataset',
-        dataset=dict(
-            type=dataset_type,
-            data_root=data_root,
-            ann_file='nuscenes_infos_trainval.pkl',
-            pipeline=train_pipeline,
-            load_type='frame_based',
-            metainfo=metainfo,
-            modality=input_modality,
-            test_mode=False,
-            data_prefix=data_prefix,
-            # we use box_type_3d='LiDAR' in kitti and nuscenes dataset
-            # and box_type_3d='Depth' in sunrgbd and scannet dataset.
-            box_type_3d='LiDAR')))
+        type=dataset_type,
+        data_root=data_root,
+        ann_file='nuscenes_infos_train.pkl',
+        pipeline=train_pipeline,
+        load_type='frame_based',
+        metainfo=metainfo,
+        modality=input_modality,
+        test_mode=False,
+        data_prefix=data_prefix,
+        # we use box_type_3d='LiDAR' in kitti and nuscenes dataset
+        # and box_type_3d='Depth' in sunrgbd and scannet dataset.
+        box_type_3d='LiDAR'))
 
 val_dataloader = dict(batch_size=1,
                       num_workers=4,
@@ -194,7 +205,7 @@ test_dataloader = val_dataloader
 
 val_evaluator = dict(type='NuScenesMetric',
                      data_root=data_root,
-                     ann_file=data_root + 'infos_val_bugfix.pkl',
+                     ann_file=data_root + 'nuscenes_infos_val.pkl',
                      metric='bbox')
 test_evaluator = val_evaluator
 
@@ -229,35 +240,32 @@ visualizer = dict(type='Det3DLocalVisualizer',
 # setuptools 65 downgrades to 58.In mmlab-node we use setuptools 61 but occurs NO errors
 
 total_epochs = 24
-# checkpoint_config = dict(interval=1, max_keep_ckpts=1)
+checkpoint_config = dict(interval=1, max_keep_ckpts=1)
 train_cfg = dict(type='EpochBasedTrainLoop',
                  max_epochs=total_epochs,
                  val_interval=2)
 val_cfg = dict(type='ValLoop')
 test_cfg = dict(type='TestLoop')
+# load_from='/home/chenxuanyao/checkpoint/fcos3d_detr3d.pth'
+load_from = 'ckpts/fcos3d_yue.pth'
+# mAP: 0.3546
+# mATE: 0.7639
+# mASE: 0.2695
+# mAOE: 0.3953
+# mAVE: 0.8853
+# mAAE: 0.2108
+# NDS: 0.4248
+# Eval time: 120.8s
 
-load_from = 'ckpts/dd3d_det_final.pth'
-find_unused_parameters = True
-default_hooks = dict(checkpoint=dict(
-    type='CheckpointHook', interval=1, max_keep_ckpts=1, save_last=True))
-
-# mAP: 0.7103
-# mATE: 0.5395
-# mASE: 0.1455
-# mAOE: 0.0719
-# mAVE: 0.2233
-# mAAE: 0.1862
-# NDS: 0.7385
-# Eval time: 107.3s
 # Per-class results:
 # Object Class    AP      ATE     ASE     AOE     AVE     AAE
-# car     0.706   0.569   0.116   0.033   0.261   0.202
-# truck   0.737   0.483   0.120   0.034   0.195   0.208
-# bus     0.760   0.463   0.108   0.028   0.296   0.240
-# trailer 0.739   0.453   0.124   0.042   0.138   0.147
-# construction_vehicle    0.710   0.513   0.178   0.085   0.139   0.329
-# pedestrian      0.715   0.510   0.205   0.203   0.248   0.138
-# motorcycle      0.692   0.560   0.149   0.089   0.357   0.218
-# bicycle 0.673   0.643   0.171   0.081   0.152   0.008
-# traffic_cone    0.691   0.569   0.172   nan     nan     nan
-# barrier 0.681   0.633   0.112   0.052   nan     nan
+# car     0.549   0.542   0.150   0.071   0.916   0.209
+# truck   0.293   0.815   0.211   0.101   1.043   0.229
+# bus     0.368   0.851   0.196   0.117   1.865   0.316
+# trailer 0.170   1.127   0.253   0.500   0.886   0.180
+# construction_vehicle    0.084   1.098   0.453   1.033   0.160   0.389
+# pedestrian      0.422   0.705   0.298   0.504   0.464   0.197
+# motorcycle      0.346   0.704   0.258   0.463   1.259   0.143
+# bicycle 0.299   0.656   0.272   0.640   0.489   0.024
+# traffic_cone    0.539   0.525   0.310   nan     nan     nan
+# barrier 0.475   0.616   0.294   0.129   nan     nan
