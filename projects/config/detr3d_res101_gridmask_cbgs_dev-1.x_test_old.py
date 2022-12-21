@@ -257,6 +257,7 @@ visualizer = dict(type='Det3DLocalVisualizer',
                   vis_backends=vis_backends,
                   name='visualizer')
 
+# before fixing h,w bug in feature-sampling
 # mAP: 0.3405
 # mATE: 0.7516
 # mASE: 0.2688
@@ -280,6 +281,7 @@ visualizer = dict(type='Det3DLocalVisualizer',
 # barrier 0.501   0.602   0.292   0.100   nan     nan
 
 
+# after fixing h,w bug in feature-sampling
 # mAP: 0.3493
 # mATE: 0.7162
 # mASE: 0.2682
