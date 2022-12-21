@@ -404,7 +404,7 @@ def feature_sampling(mlvl_feats,
     mask = (z > eps)
     pt_cam = pt_cam[..., 0:2] / torch.maximum(z, eps)  # prevent zero-division
     #padded nuscene image: 928*1600
-    (h, w) = img_metas[0]['img_shape'][0]  
+    (h, w) = img_metas[0]['pad_shape']
     pt_cam[..., 0] /= w
     pt_cam[..., 1] /= h
     # else:
