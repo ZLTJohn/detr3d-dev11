@@ -1,11 +1,8 @@
 _base_ = [
-    # '../../../mmdetection3d/configs/_base_/datasets/nus-3d.py',
-    # '/home/zhenglt/mmdev11/mmdet3d-latest/configs/_base_/datasets/nus-3d.py',
+    # '.../mmdetection3d/configs/_base_/datasets/nus-3d.py',
     '/home/zhenglt/mmdev11/mmdet3d-latest/configs/_base_/default_runtime.py'
 ]
 
-# plugin=True
-# plugin_dir='projects/mmdet3d_plugin/'
 custom_imports = dict(imports=['projects.mmdet3d_plugin'])
 # If point cloud range is changed, the models should also change their point
 # cloud range accordingly
@@ -13,49 +10,48 @@ point_cloud_range = [-51.2, -51.2, -5.0, 51.2, 51.2, 3.0]
 voxel_size = [0.2, 0.2, 8]
 
 img_norm_cfg = dict(mean=[103.530, 116.280, 123.675],
-                    std=[1.0, 1.0, 1.0],
-                    to_rgb=False)
+                    std=[1.0, 1.0, 1.0], 
+                    bgr_to_rgb=False)
 # For nuScenes we usually do 10-class detection
 class_names = [
     'car', 'truck', 'construction_vehicle', 'bus', 'trailer', 'barrier',
     'motorcycle', 'bicycle', 'pedestrian', 'traffic_cone'
 ]
 
-input_modality = dict(use_lidar=False,
-                      use_camera=True,
-                      use_radar=False,
-                      use_map=False,
-                      use_external=False)
-
-default_scope = 'mmdet3d'
+input_modality = dict(
+    use_lidar=False,
+    use_camera=True,
+    use_radar=False,
+    use_map=False,
+    use_external=False)
 # this means type='Detr3D' will be processed as 'mmdet3d.Detr3D'
+default_scope = 'mmdet3d'
 model = dict(
     type='Detr3D',
     use_grid_mask=True,
-    data_preprocessor=dict(type='Det3DDataPreprocessor',
-                           mean=[103.530, 116.280, 123.675],
-                           std=[1.0, 1.0, 1.0],
-                           bgr_to_rgb=False,
-                           pad_size_divisor=32),
-    img_backbone=dict(type='mmdet.ResNet',
-                      depth=101,
-                      num_stages=4,
-                      out_indices=(0, 1, 2, 3),
-                      frozen_stages=1,
-                      norm_cfg=dict(type='BN2d', requires_grad=False),
-                      norm_eval=True,
-                      style='caffe',
-                      dcn=dict(type='DCNv2',
-                               deform_groups=1,
-                               fallback_on_stride=False),
-                      stage_with_dcn=(False, False, True, True)),
-    img_neck=dict(type='mmdet.FPN',
-                  in_channels=[256, 512, 1024, 2048],
-                  out_channels=256,
-                  start_level=1,
-                  add_extra_convs='on_output',
-                  num_outs=4,
-                  relu_before_extra_convs=True),
+    data_preprocessor=dict(
+        type='Det3DDataPreprocessor',
+        **img_norm_cfg,
+        pad_size_divisor=32),
+    img_backbone=dict(
+        type='mmdet.ResNet',
+        depth=101,
+        num_stages=4,
+        out_indices=(0, 1, 2, 3),
+        frozen_stages=1,
+        norm_cfg=dict(type='BN2d', requires_grad=False),
+        norm_eval=True,
+        style='caffe',
+        dcn=dict(type='DCNv2', deform_groups=1, fallback_on_stride=False),
+        stage_with_dcn=(False, False, True, True)),
+    img_neck=dict(
+        type='mmdet.FPN',
+        in_channels=[256, 512, 1024, 2048],
+        out_channels=256,
+        start_level=1,
+        add_extra_convs='on_output',
+        num_outs=4,
+        relu_before_extra_convs=True),
     pts_bbox_head=dict(
         type='Detr3DHead',
         num_query=900,
@@ -74,14 +70,15 @@ model = dict(
                     type='mmdet.DetrTransformerDecoderLayer',
                     attn_cfgs=[
                         dict(
-                            type='MultiheadAttention',  #mmcv.
+                            type='MultiheadAttention',#mmcv.
                             embed_dims=256,
                             num_heads=8,
                             dropout=0.1),
-                        dict(type='Detr3DCrossAtten',
-                             pc_range=point_cloud_range,
-                             num_points=1,
-                             embed_dims=256)
+                        dict(
+                            type='Detr3DCrossAtten',
+                            pc_range=point_cloud_range,
+                            num_points=1,
+                            embed_dims=256)
                     ],
                     feedforward_channels=512,
                     ffn_dropout=0.1,
@@ -93,16 +90,18 @@ model = dict(
             pc_range=point_cloud_range,
             max_num=300,
             voxel_size=voxel_size,
-            num_classes=10),
-        positional_encoding=dict(type='mmdet.SinePositionalEncoding',
-                                 num_feats=128,
-                                 normalize=True,
-                                 offset=-0.5),
-        loss_cls=dict(type='mmdet.FocalLoss',
-                      use_sigmoid=True,
-                      gamma=2.0,
-                      alpha=0.25,
-                      loss_weight=2.0),
+            num_classes=10), 
+        positional_encoding=dict(
+            type='mmdet.SinePositionalEncoding',
+            num_feats=128,
+            normalize=True,
+            offset=-0.5),
+        loss_cls=dict(
+            type='mmdet.FocalLoss',
+            use_sigmoid=True,
+            gamma=2.0,
+            alpha=0.25,
+            loss_weight=2.0),
         loss_bbox=dict(type='mmdet.L1Loss', loss_weight=0.25),
         loss_iou=dict(type='mmdet.GIoULoss', loss_weight=0.0)),
     # model training and testing settings
@@ -115,9 +114,8 @@ model = dict(
             type='HungarianAssigner3D',
             cls_cost=dict(type='mmdet.FocalLossCost', weight=2.0),
             reg_cost=dict(type='BBox3DL1Cost', weight=0.25),
-            iou_cost=dict(
-                type='mmdet.IoUCost', weight=0.0
-            ),  # Fake cost. This is just to make it compatible with DETR head.
+            # ↓ Fake cost. This is just to make it compatible with DETR head.
+            iou_cost=dict(type='mmdet.IoUCost', weight=0.0),  
             pc_range=point_cloud_range))))
 
 dataset_type = 'NuScenesDataset'
@@ -142,28 +140,24 @@ train_pipeline = [
     dict(type='MultiViewWrapper', transforms=train_transforms),
     dict(type='ObjectRangeFilter', point_cloud_range=point_cloud_range),
     dict(type='ObjectNameFilter', classes=class_names),
-    # # dict(type='LidarBox3dVersionTransfrom'),  #petr's solution
-    # dict(type='NormalizeMultiviewImage', **img_norm_cfg),
-    # dict(type='PadMultiViewImage', size_divisor=32),
     dict(type='Pack3DDetInputs', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
 ]
 
 test_pipeline = [
     dict(type='LoadMultiViewImageFromFiles', to_float32=True, num_views=6),
-    # dict(type='NormalizeMultiviewImage', **img_norm_cfg),
     dict(type='MultiViewWrapper', transforms=test_transforms),
-    # dict(type='PadMultiViewImage', size_divisor=32),
     dict(type='Pack3DDetInputs', keys=['img'])
 ]
 
 metainfo = dict(classes=class_names)
-data_prefix = dict(pts='',
-                   CAM_FRONT='samples/CAM_FRONT',
-                   CAM_FRONT_LEFT='samples/CAM_FRONT_LEFT',
-                   CAM_FRONT_RIGHT='samples/CAM_FRONT_RIGHT',
-                   CAM_BACK='samples/CAM_BACK',
-                   CAM_BACK_RIGHT='samples/CAM_BACK_RIGHT',
-                   CAM_BACK_LEFT='samples/CAM_BACK_LEFT')
+data_prefix=dict(
+            pts='',
+            CAM_FRONT='samples/CAM_FRONT',
+            CAM_FRONT_LEFT='samples/CAM_FRONT_LEFT',
+            CAM_FRONT_RIGHT='samples/CAM_FRONT_RIGHT',
+            CAM_BACK='samples/CAM_BACK',
+            CAM_BACK_RIGHT='samples/CAM_BACK_RIGHT',
+            CAM_BACK_LEFT='samples/CAM_BACK_LEFT')
 
 train_dataloader = dict(
     batch_size=1,
@@ -185,33 +179,39 @@ train_dataloader = dict(
         # and box_type_3d='Depth' in sunrgbd and scannet dataset.
         box_type_3d='LiDAR'))
 
-val_dataloader = dict(batch_size=1,
-                      num_workers=4,
-                      persistent_workers=True,
-                      drop_last=False,
-                      sampler=dict(type='DefaultSampler', shuffle=False),
-                      dataset=dict(type=dataset_type,
-                                   data_root=data_root,
-                                   ann_file='infos_val_bugfix.pkl',
-                                   load_type='frame_based',
-                                   pipeline=test_pipeline,
-                                   metainfo=metainfo,
-                                   modality=input_modality,
-                                   test_mode=True,
-                                   data_prefix=data_prefix,
-                                   box_type_3d='LiDAR'))
+val_dataloader = dict(
+    batch_size=1,
+    num_workers=4,
+    persistent_workers=True,
+    drop_last=False,
+    sampler=dict(type='DefaultSampler', shuffle=False),
+    dataset=dict(
+        type=dataset_type,
+        data_root=data_root,
+        ann_file='nuscenes_infos_val.pkl',
+        load_type='frame_based',
+        pipeline=test_pipeline,
+        metainfo=metainfo,
+        modality=input_modality,
+        test_mode=True,
+        data_prefix=data_prefix,
+        box_type_3d='LiDAR'))
 
 test_dataloader = val_dataloader
 
-val_evaluator = dict(type='NuScenesMetric',
-                     data_root=data_root,
-                     ann_file=data_root + 'infos_val_bugfix.pkl',
-                     metric='bbox')
+val_evaluator = dict(
+    type='NuScenesMetric',
+    data_root=data_root,
+    ann_file=data_root + 'nuscenes_infos_val.pkl',
+    metric='bbox')
 test_evaluator = val_evaluator
 
 optim_wrapper = dict(
     type='OptimWrapper',
-    optimizer=dict(type='AdamW', lr=2e-4, weight_decay=0.01),
+    optimizer = dict(
+        type='AdamW', 
+        lr=2e-4,
+        weight_decay=0.01),
     paramwise_cfg=dict(custom_keys={'img_backbone': dict(lr_mult=0.1)}),
     clip_grad=dict(max_norm=35, norm_type=2),
 )
@@ -231,23 +231,31 @@ param_scheduler = [
          eta_min_ratio=1e-3)
 ]
 
-vis_backends = [dict(type='TensorboardVisBackend')]
-visualizer = dict(type='Det3DLocalVisualizer',
-                  vis_backends=vis_backends,
-                  name='visualizer')
-# ERROR: pip's dependency resolver does not currently take into account all the packages that are installed. This behaviour is the source of the following dependency conflicts.
-# jupyter-packaging 0.12.3 requires setuptools>=60.2.0, but you have setuptools 58.0.4 which is incompatible.
-# setuptools 65 downgrades to 58.In mmlab-node we use setuptools 61 but occurs NO errors
-
 total_epochs = 24
-checkpoint_config = dict(interval=1, max_keep_ckpts=1)
+
 train_cfg = dict(type='EpochBasedTrainLoop',
                  max_epochs=total_epochs,
                  val_interval=2)
 val_cfg = dict(type='ValLoop')
 test_cfg = dict(type='TestLoop')
-# load_from='/home/chenxuanyao/checkpoint/fcos3d_detr3d.pth'
+# checkpoint_config = dict(interval=1, max_keep_ckpts=1)
+default_hooks = dict(
+    checkpoint=dict(
+        type='CheckpointHook', 
+        interval=1, 
+        max_keep_ckpts=1, 
+        save_last=True)
+)
 load_from = 'ckpts/fcos3d_yue.pth'
+
+# ERROR: pip's dependency resolver does not currently take into account all the packages that are installed. This behaviour is the source of the following dependency conflicts.
+# jupyter-packaging 0.12.3 requires setuptools>=60.2.0, but you have setuptools 58.0.4 which is incompatible.
+# setuptools 65 downgrades to 58.In mmlab-node we use setuptools 61 but occurs NO errors
+vis_backends = [dict(type='TensorboardVisBackend')]
+visualizer = dict(type='Det3DLocalVisualizer',
+                  vis_backends=vis_backends,
+                  name='visualizer')
+
 # mAP: 0.3546
 # mATE: 0.7639
 # mASE: 0.2695

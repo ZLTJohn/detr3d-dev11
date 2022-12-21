@@ -26,7 +26,7 @@ class Detr3D_old(Detr3D):
 
         results_list_3d = self.pts_bbox_head.predict_by_feat(
             outs, batch_input_metas, **kwargs)
-        # breakpoint()
+
         # change the bboxes' format
         for item in results_list_3d:
             #cx, cy, cz, w, l, h, rot, vx, vy

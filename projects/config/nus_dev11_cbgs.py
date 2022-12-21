@@ -1,20 +1,17 @@
 _base_ = [
-    # '../../../mmdetection3d/configs/_base_/datasets/nus-3d.py',
-    # '/home/zhenglt/mmdev11/mmdet3d-latest/configs/_base_/datasets/nus-3d.py',
+    # '.../mmdetection3d/configs/_base_/datasets/nus-3d.py',
     '/home/zhenglt/mmdev11/mmdet3d-latest/configs/_base_/default_runtime.py'
 ]
 
-change img_norm_cfg in all configs files
-# plugin=True
-# plugin_dir='projects/mmdet3d_plugin/'
 custom_imports = dict(imports=['projects.mmdet3d_plugin'])
 # If point cloud range is changed, the models should also change their point
 # cloud range accordingly
 point_cloud_range = [-51.2, -51.2, -5.0, 51.2, 51.2, 3.0]
 voxel_size = [0.2, 0.2, 8]
 
-img_norm_cfg = dict(
-    mean=[103.530, 116.280, 123.675], std=[1.0, 1.0, 1.0], to_rgb=False)
+img_norm_cfg = dict(mean=[103.530, 116.280, 123.675],
+                    std=[1.0, 1.0, 1.0], 
+                    bgr_to_rgb=False)
 # For nuScenes we usually do 10-class detection
 class_names = [
     'car', 'truck', 'construction_vehicle', 'bus', 'trailer', 'barrier',
@@ -27,16 +24,14 @@ input_modality = dict(
     use_radar=False,
     use_map=False,
     use_external=False)
-
-default_scope = 'mmdet3d' # that means type='Detr3D' will be processed as 'mmdet3d.Detr3D'
+# this means type='Detr3D' will be processed as 'mmdet3d.Detr3D'
+default_scope = 'mmdet3d'
 model = dict(
-    type='Detr3D',
+    type='Detr3D_old',
     use_grid_mask=True,
     data_preprocessor=dict(
         type='Det3DDataPreprocessor',
-        mean=[103.530, 116.280, 123.675],
-        std=[1.0, 1.0, 1.0],
-        bgr_to_rgb=False,
+        **img_norm_cfg,
         pad_size_divisor=32),
     img_backbone=dict(
         type='mmdet.ResNet',
@@ -120,41 +115,38 @@ model = dict(
             type='HungarianAssigner3D',
             cls_cost=dict(type='mmdet.FocalLossCost', weight=2.0),
             reg_cost=dict(type='BBox3DL1Cost', weight=0.25),
-            iou_cost=dict(type='mmdet.IoUCost', weight=0.0), # Fake cost. This is just to make it compatible with DETR head. 
+            # ↓ Fake cost. This is just to make it compatible with DETR head.
+            iou_cost=dict(type='mmdet.IoUCost', weight=0.0),  
             pc_range=point_cloud_range))))
 
 dataset_type = 'NuScenesDataset'
 data_root = 'data/nus_v2/'
 
 test_transforms = [
-    dict(
-        type='RandomResize3D',
-        scale=(1600, 900),
-        ratio_range=(1., 1.),
-        keep_ratio=True)
+    dict(type='RandomResize3D',
+         scale=(1600, 900),
+         ratio_range=(1., 1.),
+         keep_ratio=True)
 ]
 train_transforms = test_transforms
 
 file_client_args = dict(backend='disk')
 train_pipeline = [
-    dict(type='LoadMultiViewImageFromFiles', to_float32=True, num_views = 6),
+    dict(type='LoadMultiViewImageFromFiles', to_float32=True, num_views=6),
     dict(type='PhotoMetricDistortionMultiViewImage'),
-    dict(type='LoadAnnotations3D', with_bbox_3d=True, with_label_3d=True, with_attr_label=False),
+    dict(type='LoadAnnotations3D',
+         with_bbox_3d=True,
+         with_label_3d=True,
+         with_attr_label=False),
     dict(type='MultiViewWrapper', transforms=train_transforms),
     dict(type='ObjectRangeFilter', point_cloud_range=point_cloud_range),
     dict(type='ObjectNameFilter', classes=class_names),
-    # # dict(type='LidarBox3dVersionTransfrom'),  #petr's solution
-    # dict(type='NormalizeMultiviewImage', **img_norm_cfg),
-    # dict(type='PadMultiViewImage', size_divisor=32),
     dict(type='Pack3DDetInputs', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
 ]
 
-
 test_pipeline = [
-    dict(type='LoadMultiViewImageFromFiles', to_float32=True, num_views = 6),
-    # dict(type='NormalizeMultiviewImage', **img_norm_cfg),
+    dict(type='LoadMultiViewImageFromFiles', to_float32=True, num_views=6),
     dict(type='MultiViewWrapper', transforms=test_transforms),
-    # dict(type='PadMultiViewImage', size_divisor=32),
     dict(type='Pack3DDetInputs', keys=['img'])
 ]
 
@@ -231,41 +223,41 @@ optim_wrapper = dict(
 # learning policy
 param_scheduler = [
     dict(type='LinearLR',
-        start_factor=1.0/3,
-        by_epoch=False,
-        begin=0,
-        end=500),
+         start_factor=1.0 / 3,
+         by_epoch=False,
+         begin=0,
+         end=500),
     dict(type='CosineAnnealingLR',
-        by_epoch=True,
-        begin=0,
-        end=24,
-        T_max=24,
-        eta_min_ratio=1e-3)
+         by_epoch=True,
+         begin=0,
+         end=24,
+         T_max=24,
+         eta_min_ratio=1e-3)
 ]
 
-vis_backends = [dict(type='TensorboardVisBackend')]
-visualizer = dict(
-    type='Det3DLocalVisualizer', vis_backends=vis_backends, name='visualizer')
-# ERROR: pip's dependency resolver does not currently take into account all the packages that are installed. This behaviour is the source of the following dependency conflicts.
-# jupyter-packaging 0.12.3 requires setuptools>=60.2.0, but you have setuptools 58.0.4 which is incompatible.   
-# setuptools 65 downgrades to 58.In mmlab-node we use setuptools 61 but occurs NO errors
-
 total_epochs = 24
-# checkpoint_config = dict(interval=1, max_keep_ckpts=1)
-train_cfg = dict(type='EpochBasedTrainLoop', max_epochs=total_epochs, val_interval=2)
+
+train_cfg = dict(type='EpochBasedTrainLoop',
+                 max_epochs=total_epochs,
+                 val_interval=2)
 val_cfg = dict(type='ValLoop')
 test_cfg = dict(type='TestLoop')
-# load_from='/home/chenxuanyao/checkpoint/fcos3d_detr3d.pth'
+# checkpoint_config = dict(interval=1, max_keep_ckpts=1)
+default_hooks = dict(
+    checkpoint=dict(
+        type='CheckpointHook', 
+        interval=1, 
+        max_keep_ckpts=1, 
+        save_last=True)
+)
 load_from = 'ckpts/fcos3d_yue.pth'
 
-default_hooks = dict(
-    checkpoint=dict(type='CheckpointHook', interval=1, max_keep_ckpts=1, save_last=True))
+vis_backends = [dict(type='TensorboardVisBackend')]
+visualizer = dict(type='Det3DLocalVisualizer',
+                  vis_backends=vis_backends,
+                  name='visualizer')
 
-
-
-# After all changes
 # mAP: 0.3405
-
 # mATE: 0.7516
 # mASE: 0.2688
 # mAOE: 0.3750
@@ -286,3 +278,26 @@ default_hooks = dict(
 # bicycle 0.256   0.657   0.284   0.583   0.405   0.014
 # traffic_cone    0.508   0.542   0.323   nan     nan     nan
 # barrier 0.501   0.602   0.292   0.100   nan     nan
+
+
+# mAP: 0.3493
+# mATE: 0.7162
+# mASE: 0.2682
+# mAOE: 0.3795
+# mAVE: 0.8417
+# mAAE: 0.1996
+# NDS: 0.4341
+# Eval time: 128.7s
+
+# Per-class results:
+# Object Class    AP      ATE     ASE     AOE     AVE     AAE
+# car     0.542   0.533   0.151   0.064   0.954   0.193
+# truck   0.285   0.774   0.208   0.093   1.016   0.239
+# bus     0.363   0.796   0.192   0.137   1.842   0.379
+# trailer 0.167   1.075   0.236   0.610   0.718   0.094
+# construction_vehicle    0.081   0.970   0.438   0.914   0.114   0.337
+# pedestrian      0.400   0.684   0.306   0.531   0.474   0.201
+# motorcycle      0.337   0.684   0.257   0.383   1.203   0.143
+# bicycle 0.261   0.631   0.280   0.582   0.411   0.012
+# traffic_cone    0.531   0.478   0.324   nan     nan     nan
+# barrier 0.525   0.536   0.291   0.102   nan     nan

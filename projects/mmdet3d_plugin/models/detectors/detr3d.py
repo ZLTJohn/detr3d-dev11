@@ -208,7 +208,7 @@ class Detr3D(MVXTwoStageDetector):
         return batch_input_metas
 
 #https://github.com/open-mmlab/mmdetection3d/pull/2110
-update_info_BUG_FIX=False
+update_info_BUG_FIX=True
 def get_lidar2img(cam2img, lidar2cam):
     """Get the projection matrix of lidar2img.
 
