@@ -14,6 +14,7 @@ from torch import Tensor
 
 from projects.mmdet3d_plugin.models.utils.grid_mask import GridMask
 
+
 # from mmdet3d.structures.bbox_3d.utils import get_lidar2img
 # from .visualizer_zlt import *
 @MODELS.register_module()
@@ -23,7 +24,7 @@ class Detr3D(MVXTwoStageDetector):
     Args:
         data_preprocessor (dict or ConfigDict, optional): The pre-process
             config of :class:`Det3DDataPreprocessor`. Defaults to None.
-        use_grid_mask (bool) : Data augmentation. Whether to mask out some 
+        use_grid_mask (bool) : Data augmentation. Whether to mask out some
             grids during extract_img_feat. Defaults to False.
         img_backbone (dict, optional): Backbone of extracting
             images feature. Defaults to None.
@@ -112,7 +113,10 @@ class Detr3D(MVXTwoStageDetector):
 
     def extract_feat(self, batch_inputs_dict: Dict,
                      batch_input_metas: List[dict]) -> List[Tensor]:
-        """Extract features from images. Refer to self.extract_img_feat()"""
+        """Extract features from images.
+
+        Refer to self.extract_img_feat()
+        """
         imgs = batch_inputs_dict.get('imgs', None)
         img_feats = self.extract_img_feat(imgs, batch_input_metas)
         return img_feats
@@ -189,7 +193,7 @@ class Detr3D(MVXTwoStageDetector):
 
     #may need speed-up
     def add_lidar2img(self, batch_input_metas: List[Dict]) -> List[Dict]:
-        """ add 'lidar2img' transformation matrix into batch_input_metas.
+        """add 'lidar2img' transformation matrix into batch_input_metas.
 
         Args:
             batch_input_metas (list[dict]): Meta information of multiple inputs
@@ -207,8 +211,11 @@ class Detr3D(MVXTwoStageDetector):
             meta['lidar2img'] = l2i
         return batch_input_metas
 
+
 #https://github.com/open-mmlab/mmdetection3d/pull/2110
-update_info_BUG_FIX=True
+update_info_BUG_FIX = True
+
+
 def get_lidar2img(cam2img, lidar2cam):
     """Get the projection matrix of lidar2img.
 

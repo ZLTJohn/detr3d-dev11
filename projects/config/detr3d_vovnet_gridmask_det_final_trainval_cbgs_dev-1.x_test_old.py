@@ -18,12 +18,11 @@ class_names = [
     'motorcycle', 'bicycle', 'pedestrian', 'traffic_cone'
 ]
 
-input_modality = dict(
-    use_lidar=False,
-    use_camera=True,
-    use_radar=False,
-    use_map=False,
-    use_external=False)
+input_modality = dict(use_lidar=False,
+                      use_camera=True,
+                      use_radar=False,
+                      use_map=False,
+                      use_external=False)
 # this means type='Detr3D' will be processed as 'mmdet3d.Detr3D'
 default_scope = 'mmdet3d'
 model = dict(
@@ -64,15 +63,14 @@ model = dict(
                     type='mmdet.DetrTransformerDecoderLayer',
                     attn_cfgs=[
                         dict(
-                            type='MultiheadAttention',#mmcv.
+                            type='MultiheadAttention',  #mmcv.
                             embed_dims=256,
                             num_heads=8,
                             dropout=0.1),
-                        dict(
-                            type='Detr3DCrossAtten',
-                            pc_range=point_cloud_range,
-                            num_points=1,
-                            embed_dims=256)
+                        dict(type='Detr3DCrossAtten',
+                             pc_range=point_cloud_range,
+                             num_points=1,
+                             embed_dims=256)
                     ],
                     feedforward_channels=512,
                     ffn_dropout=0.1,
@@ -85,17 +83,15 @@ model = dict(
             max_num=300,
             voxel_size=voxel_size,
             num_classes=10),
-        positional_encoding=dict(
-            type='mmdet.SinePositionalEncoding',
-            num_feats=128,
-            normalize=True,
-            offset=-0.5),
-        loss_cls=dict(
-            type='mmdet.FocalLoss',
-            use_sigmoid=True,
-            gamma=2.0,
-            alpha=0.25,
-            loss_weight=2.0),
+        positional_encoding=dict(type='mmdet.SinePositionalEncoding',
+                                 num_feats=128,
+                                 normalize=True,
+                                 offset=-0.5),
+        loss_cls=dict(type='mmdet.FocalLoss',
+                      use_sigmoid=True,
+                      gamma=2.0,
+                      alpha=0.25,
+                      loss_weight=2.0),
         loss_bbox=dict(type='mmdet.L1Loss', loss_weight=0.25),
         loss_iou=dict(type='mmdet.GIoULoss', loss_weight=0.0)),
     # model training and testing settings
@@ -109,7 +105,7 @@ model = dict(
             cls_cost=dict(type='mmdet.FocalLossCost', weight=2.0),
             reg_cost=dict(type='BBox3DL1Cost', weight=0.25),
             # ↓ Fake cost. This is just to make it compatible with DETR head.
-            iou_cost=dict(type='mmdet.IoUCost', weight=0.0),  
+            iou_cost=dict(type='mmdet.IoUCost', weight=0.0),
             pc_range=point_cloud_range))))
 
 dataset_type = 'NuScenesDataset'
@@ -144,14 +140,13 @@ test_pipeline = [
 ]
 
 metainfo = dict(classes=class_names)
-data_prefix=dict(
-            pts='',
-            CAM_FRONT='samples/CAM_FRONT',
-            CAM_FRONT_LEFT='samples/CAM_FRONT_LEFT',
-            CAM_FRONT_RIGHT='samples/CAM_FRONT_RIGHT',
-            CAM_BACK='samples/CAM_BACK',
-            CAM_BACK_RIGHT='samples/CAM_BACK_RIGHT',
-            CAM_BACK_LEFT='samples/CAM_BACK_LEFT')
+data_prefix = dict(pts='',
+                   CAM_FRONT='samples/CAM_FRONT',
+                   CAM_FRONT_LEFT='samples/CAM_FRONT_LEFT',
+                   CAM_FRONT_RIGHT='samples/CAM_FRONT_RIGHT',
+                   CAM_BACK='samples/CAM_BACK',
+                   CAM_BACK_RIGHT='samples/CAM_BACK_RIGHT',
+                   CAM_BACK_LEFT='samples/CAM_BACK_LEFT')
 
 train_dataloader = dict(
     batch_size=1,
@@ -175,39 +170,33 @@ train_dataloader = dict(
             # and box_type_3d='Depth' in sunrgbd and scannet dataset.
             box_type_3d='LiDAR')))
 
-val_dataloader = dict(
-    batch_size=1,
-    num_workers=4,
-    persistent_workers=True,
-    drop_last=False,
-    sampler=dict(type='DefaultSampler', shuffle=False),
-    dataset=dict(
-        type=dataset_type,
-        data_root=data_root,
-        ann_file='nuscenes_infos_val.pkl',
-        load_type='frame_based',
-        pipeline=test_pipeline,
-        metainfo=metainfo,
-        modality=input_modality,
-        test_mode=True,
-        data_prefix=data_prefix,
-        box_type_3d='LiDAR'))
+val_dataloader = dict(batch_size=1,
+                      num_workers=4,
+                      persistent_workers=True,
+                      drop_last=False,
+                      sampler=dict(type='DefaultSampler', shuffle=False),
+                      dataset=dict(type=dataset_type,
+                                   data_root=data_root,
+                                   ann_file='nuscenes_infos_val.pkl',
+                                   load_type='frame_based',
+                                   pipeline=test_pipeline,
+                                   metainfo=metainfo,
+                                   modality=input_modality,
+                                   test_mode=True,
+                                   data_prefix=data_prefix,
+                                   box_type_3d='LiDAR'))
 
 test_dataloader = val_dataloader
 
-val_evaluator = dict(
-    type='NuScenesMetric',
-    data_root=data_root,
-    ann_file=data_root + 'nuscenes_infos_val.pkl',
-    metric='bbox')
+val_evaluator = dict(type='NuScenesMetric',
+                     data_root=data_root,
+                     ann_file=data_root + 'nuscenes_infos_val.pkl',
+                     metric='bbox')
 test_evaluator = val_evaluator
 
 optim_wrapper = dict(
     type='OptimWrapper',
-    optimizer = dict(
-        type='AdamW', 
-        lr=2e-4,
-        weight_decay=0.01),
+    optimizer=dict(type='AdamW', lr=2e-4, weight_decay=0.01),
     paramwise_cfg=dict(custom_keys={'img_backbone': dict(lr_mult=0.1)}),
     clip_grad=dict(max_norm=35, norm_type=2),
 )
@@ -235,13 +224,8 @@ train_cfg = dict(type='EpochBasedTrainLoop',
 val_cfg = dict(type='ValLoop')
 test_cfg = dict(type='TestLoop')
 # checkpoint_config = dict(interval=1, max_keep_ckpts=1)
-default_hooks = dict(
-    checkpoint=dict(
-        type='CheckpointHook', 
-        interval=1, 
-        max_keep_ckpts=1, 
-        save_last=True)
-)
+default_hooks = dict(checkpoint=dict(
+    type='CheckpointHook', interval=1, max_keep_ckpts=1, save_last=True))
 load_from = 'ckpts/fcos3d_yue.pth'
 
 vis_backends = [dict(type='TensorboardVisBackend')]

@@ -58,7 +58,7 @@ class NMSFreeCoder(BaseBBoxCoder):
         bbox_preds = bbox_preds[bbox_index]
 
         # [[cx, cy, cz, l, w, h, rot, vx, vy]]
-        final_box_preds = denormalize_bbox(bbox_preds, None)  
+        final_box_preds = denormalize_bbox(bbox_preds, None)
         final_scores = scores
         final_preds = labels
 

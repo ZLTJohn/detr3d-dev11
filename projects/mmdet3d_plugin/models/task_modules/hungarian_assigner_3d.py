@@ -70,7 +70,7 @@ class HungarianAssigner3D(BaseAssigner):
            and assign the corresponding gt index (plus 1) to it.
         Args:
             bbox_pred (Tensor): Predicted boxes with normalized coordinates
-                (cx,cy,l,w,cz,h,sin(φ),cos(φ),v_x,v_y) which are all in range [0, 1]. 
+                (cx,cy,l,w,cz,h,sin(φ),cos(φ),v_x,v_y) which are all in range [0, 1].
                 Shape [num_query, 10].
             cls_pred (Tensor): Predicted classification logits, shape
                 [num_query, num_class].

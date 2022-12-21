@@ -1,4 +1,5 @@
 import time
+import warnings
 
 import numpy as np
 import torch
@@ -9,7 +10,7 @@ from mmcv.cnn.bricks.transformer import (TransformerLayerSequence,
 from mmcv.ops.multi_scale_deform_attn import MultiScaleDeformableAttention
 from mmdet3d.registry import MODELS
 from mmengine.model import BaseModule, constant_init, xavier_init
-import warnings
+
 
 def inverse_sigmoid(x, eps=1e-5):
     """Inverse function of sigmoid.
@@ -80,7 +81,7 @@ class Detr3DTransformer(BaseModule):
             mlvl_feats (list(Tensor)): Input queries from
                 different level. Each element has shape
                 (B, N, C, H_lvl, W_lvl).
-            query_embed (Tensor): The query positional and semantic embedding for decoder, with shape [num_query, c+c]. 
+            query_embed (Tensor): The query positional and semantic embedding for decoder, with shape [num_query, c+c].
             mlvl_pos_embeds (list(Tensor)): The positional encoding
                 of feats from different level, has the shape [bs, N, embed_dims, h, w].
                 It is unused here.
@@ -101,9 +102,9 @@ class Detr3DTransformer(BaseModule):
         """
         assert query_embed is not None
         bs = mlvl_feats[0].size(0)
-        query_pos, query = torch.split(query_embed, self.embed_dims, dim=1)  
+        query_pos, query = torch.split(query_embed, self.embed_dims, dim=1)
         query_pos = query_pos.unsqueeze(0).expand(bs, -1, -1)  #[bs,num_q,c]
-        query = query.unsqueeze(0).expand(bs, -1, -1)          #[bs,num_q,c]
+        query = query.unsqueeze(0).expand(bs, -1, -1)  #[bs,num_q,c]
         reference_points = self.reference_points(query_pos)
         reference_points = reference_points.sigmoid()
         init_reference_out = reference_points
@@ -219,20 +220,21 @@ class Detr3DCrossAtten(BaseModule):
             Default: None.
     """
 
-    def __init__(self,
-                 embed_dims=256,
-                 num_heads=8,
-                 num_levels=4,
-                 num_points=5,
-                 num_cams=6,
-                 im2col_step=64,
-                 pc_range=None,
-                 dropout=0.1,
-                 norm_cfg=None,
-                 init_cfg=None,
-                 batch_first=False,
-                #  waymo_with_nuscene=False
-                 ):
+    def __init__(
+        self,
+        embed_dims=256,
+        num_heads=8,
+        num_levels=4,
+        num_points=5,
+        num_cams=6,
+        im2col_step=64,
+        pc_range=None,
+        dropout=0.1,
+        norm_cfg=None,
+        init_cfg=None,
+        batch_first=False,
+        #  waymo_with_nuscene=False
+    ):
         super(Detr3DCrossAtten, self).__init__(init_cfg)
         if embed_dims % num_heads != 0:
             raise ValueError(f'embed_dims must be divisible by num_heads, '
@@ -342,18 +344,19 @@ class Detr3DCrossAtten(BaseModule):
         output = output.sum(-1).sum(-1).sum(-1)
         output = output.permute(2, 0, 1)
         # (num_query, bs, embed_dims)
-        output = self.output_proj(output)  
+        output = self.output_proj(output)
         pos_feat = self.position_encoder(
             inverse_sigmoid(reference_points_3d)).permute(1, 0, 2)
         return self.dropout(output) + inp_residual + pos_feat
 
 
-def feature_sampling(mlvl_feats,
-                     ref_pt,
-                     pc_range,
-                     img_metas,
-                    #  return_depth=False
-                    ):
+def feature_sampling(
+    mlvl_feats,
+    ref_pt,
+    pc_range,
+    img_metas,
+    #  return_depth=False
+):
     """ sample multi-level features by projecting 3D reference points to 2D image
         Args:
             mlvl_feats (List[Tensor]): Image features from
@@ -394,7 +397,8 @@ def feature_sampling(mlvl_feats,
     ref_pt = ref_pt.view(B, 1, num_query, 4)
     ref_pt = ref_pt.repeat(1, num_cam, 1, 1).unsqueeze(-1)
     #(B num_cam 4 4) -> (B num_cam num_q 4 4)
-    lidar2img = lidar2img.view(B, num_cam, 1, 4, 4).repeat(1, 1, num_query, 1,1)  
+    lidar2img = lidar2img.view(B, num_cam, 1, 4, 4)\
+                         .repeat(1, 1, num_query, 1, 1)
     #(... 4 4) * (... 4 1) -> (B num_cam num_q 4)
     pt_cam = torch.matmul(lidar2img, ref_pt).squeeze(-1)
 
@@ -418,7 +422,7 @@ def feature_sampling(mlvl_feats,
             & (pt_cam[..., 1:2] > 0.0)
             & (pt_cam[..., 1:2] < 1.0))
     #(B num_cam num_q) -> (B 1 num_q num_cam 1 1)
-    mask = mask.view(B, num_cam, 1, num_query, 1, 1).permute(0, 2, 3, 1, 4, 5)  
+    mask = mask.view(B, num_cam, 1, num_query, 1, 1).permute(0, 2, 3, 1, 4, 5)
     mask = torch.nan_to_num(mask)
 
     pt_cam = (pt_cam - 0.5) * 2  #[0,1] to [-1,1] to do grid_sample
@@ -433,7 +437,8 @@ def feature_sampling(mlvl_feats,
         sampled_feat = sampled_feat.permute(0, 2, 3, 1, 4)
         sampled_feats.append(sampled_feat)
 
-    sampled_feats = torch.stack(sampled_feats, -1)  # (B C num_q num_cam fpn_lvl)
-    sampled_feats = sampled_feats.view(B, C, num_query, num_cam, 1,
-                                       len(mlvl_feats))
+    sampled_feats = torch.stack(sampled_feats, -1)
+    # (B C num_q num_cam fpn_lvl)
+    sampled_feats = \
+        sampled_feats.view(B, C, num_query, num_cam, 1, len(mlvl_feats))
     return ref_pt_3d, sampled_feats, mask
