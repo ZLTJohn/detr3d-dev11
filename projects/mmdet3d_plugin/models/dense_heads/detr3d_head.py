@@ -20,7 +20,8 @@ from mmengine.structures import InstanceData
 from torch import Tensor
 
 from projects.mmdet3d_plugin.models.task_modules.util import normalize_bbox
-from projects.mmdet3d_plugin.models.utils.old_env import force_fp32
+
+# from projects.mmdet3d_plugin.models.utils.old_env import force_fp32
 
 
 @MODELS.register_module()
@@ -188,16 +189,16 @@ class Detr3DHead(DETRHead):
 
     def _get_target_single(
             self,
-            cls_score: Tensor,  #[query, num_cls]
-            bbox_pred: Tensor,  #[query, 10]
+            cls_score: Tensor,  # [query, num_cls]
+            bbox_pred: Tensor,  # [query, 10]
             gt_instances_3d: InstanceList) -> Tuple[Tensor, ...]:
         """Compute regression and classification targets for a single image."""
         # turn bottm center into gravity center
-        gt_bboxes = gt_instances_3d.bboxes_3d  #[num_gt, 9]
+        gt_bboxes = gt_instances_3d.bboxes_3d  # [num_gt, 9]
         gt_bboxes = torch.cat(
             (gt_bboxes.gravity_center, gt_bboxes.tensor[:, 3:]), dim=1)
 
-        gt_labels = gt_instances_3d.labels_3d  #[num_gt, num_cls]
+        gt_labels = gt_instances_3d.labels_3d  # [num_gt, num_cls]
         # assigner and sampler: PseudoSampler
         assign_result = self.assigner.assign(bbox_pred,
                                              cls_score,
@@ -216,14 +217,13 @@ class Detr3DHead(DETRHead):
                                     self.num_classes,
                                     dtype=torch.long)
         labels[pos_inds] = gt_labels[sampling_result.pos_assigned_gt_inds]
-        label_weights = gt_bboxes.new_ones(
-            num_bboxes)  #all query should learn its classification
+        label_weights = gt_bboxes.new_ones(num_bboxes)
 
         # bbox targets
-        #theta in gt_bbox here is still a single scalar
+        # theta in gt_bbox here is still a single scalar
         bbox_targets = torch.zeros_like(bbox_pred)[..., :self.code_size - 1]
         bbox_weights = torch.zeros_like(bbox_pred)
-        #only matched query will learn from bbox coord
+        # only matched query will learn from bbox coord
         bbox_weights[pos_inds] = 1.0
 
         # fix empty gt bug in multi gpu training
@@ -279,8 +279,8 @@ class Detr3DHead(DETRHead):
 
     def loss_by_feat_single(
             self,
-            batch_cls_scores: Tensor,  #bs,num_q,num_cls
-            batch_bbox_preds: Tensor,  #bs,num_q,10
+            batch_cls_scores: Tensor,  # bs,num_q,num_cls
+            batch_bbox_preds: Tensor,  # bs,num_q,10
             batch_gt_instances_3d: InstanceList) ->...:
         """"Loss function for outputs from a single decoder layer of a single
         feature level.
@@ -298,7 +298,7 @@ class Detr3DHead(DETRHead):
             tulple(Tensor, Tensor): cls and reg loss for outputs from
                 a single decoder layer.
         """
-        batch_size = batch_cls_scores.size(0)  #batch size
+        batch_size = batch_cls_scores.size(0)  # batch size
         cls_scores_list = [batch_cls_scores[i] for i in range(batch_size)]
         bbox_preds_list = [batch_bbox_preds[i] for i in range(batch_size)]
         cls_reg_targets = self.get_targets(cls_scores_list, bbox_preds_list,
@@ -335,7 +335,7 @@ class Detr3DHead(DETRHead):
         batch_bbox_preds = batch_bbox_preds.reshape(-1,
                                                     batch_bbox_preds.size(-1))
         normalized_bbox_targets = normalize_bbox(bbox_targets, self.pc_range)
-        #neg_query is all 0, log(0) is NaN
+        # neg_query is all 0, log(0) is NaN
         isnotnan = torch.isfinite(normalized_bbox_targets).all(dim=-1)
         bbox_weights = bbox_weights * self.code_weights
 
@@ -379,7 +379,7 @@ class Detr3DHead(DETRHead):
         enc_cls_scores = preds_dicts['enc_cls_scores']
         enc_bbox_preds = preds_dicts['enc_bbox_preds']
 
-        #calculate loss for each decoder layer
+        # calculate loss for each decoder layer
         num_dec_layers = len(all_cls_scores)
         batch_gt_instances_3d_list = [
             batch_gt_instances_3d for _ in range(num_dec_layers)

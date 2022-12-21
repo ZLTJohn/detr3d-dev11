@@ -2,21 +2,20 @@ import os
 import time
 from typing import Dict, List, Optional, Sequence
 
-import cv2
 import numpy as np
 import torch
-import torchvision.utils as vutils
 from mmdet3d.models.detectors.mvx_two_stage import MVXTwoStageDetector
 from mmdet3d.registry import MODELS
-from mmdet3d.structures import Det3DDataSample, bbox3d2result
-from mmengine.structures import InstanceData
+from mmdet3d.structures import Det3DDataSample
 from torch import Tensor
 
 from projects.mmdet3d_plugin.models.utils.grid_mask import GridMask
 
 
+# import torchvision.utils as vutils
 # from mmdet3d.structures.bbox_3d.utils import get_lidar2img
 # from .visualizer_zlt import *
+# import cv2
 @MODELS.register_module()
 class Detr3D(MVXTwoStageDetector):
     """DETR3D: 3D Object Detection from Multi-view Images via 3D-to-2D Queries
@@ -85,7 +84,7 @@ class Detr3D(MVXTwoStageDetector):
 
         B = img.size(0)
         if img is not None:
-            input_shape = img.shape[-2:]  #bs nchw
+            input_shape = img.shape[-2:]  # bs nchw
             # update real input shape of each single img
             for img_meta in batch_input_metas:
                 img_meta.update(input_shape=input_shape)
@@ -124,7 +123,7 @@ class Detr3D(MVXTwoStageDetector):
     def _forward(self):
         raise NotImplementedError(f'tensor mode is yet to add')
 
-    ##original forward_train
+    # original forward_train
     def loss(self, batch_inputs_dict: Dict[List, Tensor],
              batch_data_samples: List[Det3DDataSample],
              **kwargs) -> List[Det3DDataSample]:
@@ -152,7 +151,7 @@ class Detr3D(MVXTwoStageDetector):
 
         return losses_pts
 
-    #original simple_test
+    # original simple_test
     def predict(self, batch_inputs_dict: Dict[str, Optional[Tensor]],
                 batch_data_samples: List[Det3DDataSample],
                 **kwargs) -> List[Det3DDataSample]:
@@ -191,7 +190,7 @@ class Detr3D(MVXTwoStageDetector):
                                                  results_list_3d)
         return detsamples
 
-    #may need speed-up
+    # may need speed-up
     def add_lidar2img(self, batch_input_metas: List[Dict]) -> List[Dict]:
         """add 'lidar2img' transformation matrix into batch_input_metas.
 

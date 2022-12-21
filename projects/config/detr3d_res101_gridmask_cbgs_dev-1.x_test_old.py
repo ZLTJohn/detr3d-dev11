@@ -68,7 +68,7 @@ model = dict(
                     type='mmdet.DetrTransformerDecoderLayer',
                     attn_cfgs=[
                         dict(
-                            type='MultiheadAttention',  #mmcv.
+                            type='MultiheadAttention',  # mmcv.
                             embed_dims=256,
                             num_heads=8,
                             dropout=0.1),

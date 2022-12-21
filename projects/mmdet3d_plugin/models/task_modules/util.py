@@ -11,7 +11,9 @@ def normalize_bbox(bboxes: Tensor, pc_range: List) -> Tensor:
                 coordinates (cx,cy,cz,l,w,h,φ,v_x,v_y). Shape [num_gt, 9].
             pc_range (List): Perception range of the detector
         Returns:
-            normalized_bboxes (Tensor): boxes with normalized coordinates (cx,cy,l,w,cz,h,sin(φ),cos(φ),v_x,v_y) which are all in range [0, 1]. Shape [num_query, 10].
+            normalized_bboxes (Tensor): boxes with normalized coordinates \
+            (cx,cy,l,w,cz,h,sin(φ),cos(φ),v_x,v_y), which are all in range [0, 1]. \
+            Shape [num_query, 10].
     """
 
     cx = bboxes[..., 0:1]
@@ -36,7 +38,9 @@ def normalize_bbox(bboxes: Tensor, pc_range: List) -> Tensor:
 def denormalize_bbox(normalized_bboxes, pc_range):
     """ denormalize bboxes
         Args:
-            normalized_bboxes (Tensor): boxes with normalized coordinates (cx,cy,l,w,cz,h,sin(φ),cos(φ),v_x,v_y) which are all in range [0, 1]. Shape [num_query, 10].
+            normalized_bboxes (Tensor): boxes with normalized coordinates \
+            (cx,cy,l,w,cz,h,sin(φ),cos(φ),v_x,v_y), which are all in range [0, 1]. \
+            Shape [num_query, 10].
             pc_range (List): Perception range of the detector
         Returns:
             denormalized_bboxes (Tensor): boxes with unnormalized

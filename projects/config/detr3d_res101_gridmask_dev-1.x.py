@@ -68,7 +68,7 @@ model = dict(
                     type='mmdet.DetrTransformerDecoderLayer',
                     attn_cfgs=[
                         dict(
-                            type='MultiheadAttention',  #mmcv.
+                            type='MultiheadAttention',  # mmcv.
                             embed_dims=256,
                             num_heads=8,
                             dropout=0.1),
@@ -231,7 +231,8 @@ default_hooks = dict(checkpoint=dict(
     type='CheckpointHook', interval=1, max_keep_ckpts=1, save_last=True))
 load_from = 'ckpts/fcos3d_yue.pth'
 
-# ERROR: pip's dependency resolver does not currently take into account all the packages that are installed. This behaviour is the source of the following dependency conflicts.
+# ERROR: pip's dependency resolver does not currently take into account all the packages that are installed.
+# This behaviour is the source of the following dependency conflicts.
 # jupyter-packaging 0.12.3 requires setuptools>=60.2.0, but you have setuptools 58.0.4 which is incompatible.
 # setuptools 65 downgrades to 58.In mmlab-node we use setuptools 61 but occurs NO errors
 vis_backends = [dict(type='TensorboardVisBackend')]
