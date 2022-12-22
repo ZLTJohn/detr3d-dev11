@@ -291,3 +291,13 @@ visualizer = dict(type='Det3DLocalVisualizer',
 # bicycle 0.281   0.711   0.275   0.654   0.491   0.024
 # traffic_cone    0.498   0.599   0.309   nan     nan     nan
 # barrier 0.445   0.693   0.295   0.130   nan     nan
+
+# torch.Size([1, 6, 256, 116, 200])
+# torch.Size([1, 6, 256, 58, 100])
+# torch.Size([1, 6, 256, 29, 50])
+# torch.Size([1, 6, 256, 15, 25])
+
+# torch.Size([1, 6, 256, 232, 400])
+# torch.Size([1, 6, 256, 116, 200])
+# torch.Size([1, 6, 256, 58, 100])
+# torch.Size([1, 6, 256, 29, 50])
