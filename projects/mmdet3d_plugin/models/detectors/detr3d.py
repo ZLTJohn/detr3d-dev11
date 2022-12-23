@@ -148,7 +148,7 @@ class Detr3D(MVXTwoStageDetector):
         losses_pts = self.pts_bbox_head.loss_by_feat(*loss_inputs)
 
         if self.vis is not None:
-            self.vis.visualize(batch_gt_instances_3d, batch_input_metas)
+            self.vis.visualize(batch_gt_instances_3d, batch_input_metas, batch_inputs_dict.get('imgs', None))
         return losses_pts
 
     # original simple_test
@@ -189,7 +189,7 @@ class Detr3D(MVXTwoStageDetector):
         detsamples = self.add_pred_to_datasample(batch_data_samples,
                                                  results_list_3d)
         if self.vis is not None:
-            self.vis.visualize(results_list_3d, batch_input_metas)
+            self.vis.visualize(results_list_3d, batch_input_metas, batch_inputs_dict.get('imgs', None))
         return detsamples
 
     # may need speed-up
