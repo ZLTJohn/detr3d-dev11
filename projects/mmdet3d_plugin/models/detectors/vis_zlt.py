@@ -11,7 +11,7 @@ from PIL import ImageFont
 from PIL import ImageDraw 
 import random
 import os.path as osp
-from  projects.mmdet3d_plugin.models.utils.detr3d_transformer import feature_sampling
+from  projects.mmdet3d_plugin.models.layers.detr3d_transformer import feature_sampling
 ##lidar_path, img_path
 '''
 forget to transform the coordinate of previous frame 3d box centers
