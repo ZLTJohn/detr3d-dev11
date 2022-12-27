@@ -34,7 +34,8 @@ class Detr3D_old(Detr3D):
                                                                        [4, 3]]
             item.bboxes_3d.tensor[
                 ..., 6] = -item.bboxes_3d.tensor[..., 6] - np.pi / 2
-
+        if self.vis is not None:
+            self.vis.visualize(results_list_3d, batch_input_metas, batch_inputs_dict.get('imgs', None))
         detsamples = self.add_pred_to_datasample(batch_data_samples,
                                                  results_list_3d)
         return detsamples
