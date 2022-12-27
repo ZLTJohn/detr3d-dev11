@@ -4,7 +4,7 @@ _base_ = [
     '/home/zhenglt/mmdev11/mmdet3d-latest/configs/_base_/default_runtime.py'
 ]
 #### debugging no auto_fp32
-#### Resize3D 
+#### Resize3D
 # plugin=True
 # plugin_dir='projects/mmdet3d_plugin/'
 custom_imports = dict(imports=['projects.mmdet3d_plugin'])
@@ -28,17 +28,16 @@ input_modality = dict(use_lidar=True,
                       use_map=False,
                       use_external=False)
 # this means type='Detr3D' will be processed as 'mmdet3d.Detr3D'
-debug_vis_cfg= dict(
-                 debug_dir='debug/visualization',
-                 gt_range=[0, 105],
-                 pc_range=point_cloud_range,
-                 vis_count=300,
-                 debug_name='dev1x_watch')
+debug_vis_cfg = dict(debug_dir='debug/visualization',
+                     gt_range=[0, 105],
+                     pc_range=point_cloud_range,
+                     vis_count=300,
+                     debug_name='dev1x_watch')
 default_scope = 'mmdet3d'
 model = dict(
     type='Detr3D',
     use_grid_mask=True,
-    debug_vis_cfg = debug_vis_cfg,
+    debug_vis_cfg=debug_vis_cfg,
     data_preprocessor=dict(type='Det3DDataPreprocessor',
                            **img_norm_cfg,
                            pad_size_divisor=32),
@@ -155,7 +154,7 @@ train_pipeline = [
 
 test_pipeline = [
     dict(type='LoadMultiViewImageFromFiles', to_float32=True, num_views=6),
-    dict(type='filename2img_path'),#fix it in ↑ via a PR
+    dict(type='filename2img_path'),  #fix it in ↑ via a PR
     # dict(type='NormalizeMultiviewImage', **img_norm_cfg),
     dict(type='MultiViewWrapper', transforms=test_transforms),
     # dict(type='AddPointCloudFilename'),

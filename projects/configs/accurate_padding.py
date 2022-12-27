@@ -3,7 +3,7 @@ _base_ = [
     # '/home/zhenglt/mmdev11/mmdet3d-latest/configs/_base_/datasets/nus-3d.py',
     '/home/zhenglt/mmdev11/mmdet3d-latest/configs/_base_/default_runtime.py'
 ]
-#### Resize3D 
+#### Resize3D
 custom_imports = dict(imports=['projects.detr3d'])
 # If point cloud range is changed, the models should also change their point
 # cloud range accordingly
@@ -142,7 +142,7 @@ train_pipeline = [
 
 test_pipeline = [
     dict(type='LoadMultiViewImageFromFiles', to_float32=True, num_views=6),
-    dict(type='filename2img_path'),#fix it in ↑ via a PR
+    dict(type='filename2img_path'),  #fix it in ↑ via a PR
     dict(type='MultiViewWrapper', transforms=test_transforms),
     dict(type='Pack3DDetInputs', keys=['img'])
 ]

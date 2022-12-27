@@ -4,7 +4,7 @@ _base_ = [
     '/home/zhenglt/mmdev11/mmdet3d-latest/configs/_base_/default_runtime.py'
 ]
 #### debugging no auto_fp32
-#### Resize3D 
+#### Resize3D
 # plugin=True
 # plugin_dir='projects/mmdet3d_plugin/'
 custom_imports = dict(imports=['projects.detr3d'])
@@ -13,20 +13,20 @@ custom_imports = dict(imports=['projects.detr3d'])
 point_cloud_range = [-35, -75, -2, 75, 75, 4]
 voxel_size = [0.2, 0.2, 8]
 num_views = 5
-img_norm_cfg = dict(
-    mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], bgr_to_rgb=True)
+img_norm_cfg = dict(mean=[123.675, 116.28, 103.53],
+                    std=[58.395, 57.12, 57.375],
+                    bgr_to_rgb=True)
 # For nuScenes we usually do 10-class detection
-class_names = [ # 不确定sign类别是否叫sign
+class_names = [  # 不确定sign类别是否叫sign
     'Car', 'Pedestrian', 'Cyclist'
 ]
 
 # this means type='Detr3D' will be processed as 'mmdet3d.Detr3D'
-debug_vis_cfg= dict(
-                 debug_dir='debug/visualization',
-                 gt_range=[0, 105],
-                 pc_range=point_cloud_range,
-                 vis_count=15,
-                 debug_name='dev1x_watch')
+debug_vis_cfg = dict(debug_dir='debug/visualization',
+                     gt_range=[0, 105],
+                     pc_range=point_cloud_range,
+                     vis_count=15,
+                     debug_name='dev1x_watch')
 default_scope = 'mmdet3d'
 model = dict(
     type='Detr3D',
@@ -35,21 +35,22 @@ model = dict(
     data_preprocessor=dict(type='Det3DDataPreprocessor',
                            **img_norm_cfg,
                            pad_size_divisor=32),
-    img_backbone=dict(type='mmdet.ResNet',
-                      depth=101,
-                      num_stages=4,
-                      out_indices=(0, 1, 2, 3),
-                      frozen_stages=1,
-                      # with_cp=True,
-                      norm_cfg=dict(type='BN2d', requires_grad=False),
-                      norm_eval=True,
-                      style='pytorch',
-                      dcn=dict(type='DCNv2', deform_groups=1, fallback_on_stride=False),
-                      stage_with_dcn=(False, False, True, True),
-                      # init_cfg=dict(
-                      #     type='Pretrained',
-                      #     checkpoint='open-mmlab://detectron2/resnet101_caffe')
-        ),
+    img_backbone=dict(
+        type='mmdet.ResNet',
+        depth=101,
+        num_stages=4,
+        out_indices=(0, 1, 2, 3),
+        frozen_stages=1,
+        # with_cp=True,
+        norm_cfg=dict(type='BN2d', requires_grad=False),
+        norm_eval=True,
+        style='pytorch',
+        dcn=dict(type='DCNv2', deform_groups=1, fallback_on_stride=False),
+        stage_with_dcn=(False, False, True, True),
+        # init_cfg=dict(
+        #     type='Pretrained',
+        #     checkpoint='open-mmlab://detectron2/resnet101_caffe')
+    ),
     img_neck=dict(type='mmdet.FPN',
                   in_channels=[256, 512, 1024, 2048],
                   out_channels=256,
@@ -62,14 +63,16 @@ model = dict(
         num_query=900,
         num_classes=3,
         in_channels=256,
-        code_size=8,    #we don't infer velocity here, but infer(x,y,z,w,h,l,sin(θ),cos(θ)) for bboxes
-        code_weights = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0], #specify the weights since default length is 10
+        code_size=
+        8,  #we don't infer velocity here, but infer(x,y,z,w,h,l,sin(θ),cos(θ)) for bboxes
+        code_weights=[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+                      1.0],  #specify the weights since default length is 10
         sync_cls_avg_factor=True,
         with_box_refine=True,
         as_two_stage=False,
         transformer=dict(
             type='Detr3DTransformer',
-            num_cams = num_views,
+            num_cams=num_views,
             decoder=dict(
                 type='Detr3DTransformerDecoder',
                 num_layers=6,
@@ -84,7 +87,7 @@ model = dict(
                             dropout=0.1),
                         dict(type='Detr3DCrossAtten',
                              pc_range=point_cloud_range,
-                             num_cams = num_views,
+                             num_cams=num_views,
                              num_points=1,
                              embed_dims=256)
                     ],
@@ -92,13 +95,12 @@ model = dict(
                     ffn_dropout=0.1,
                     operation_order=('self_attn', 'norm', 'cross_attn', 'norm',
                                      'ffn', 'norm')))),
-        bbox_coder=dict(
-            type='NMSFreeCoder',
-            post_center_range=point_cloud_range,
-            pc_range=point_cloud_range,
-            max_num=300,
-            voxel_size=voxel_size,
-            num_classes=3),
+        bbox_coder=dict(type='NMSFreeCoder',
+                        post_center_range=point_cloud_range,
+                        pc_range=point_cloud_range,
+                        max_num=300,
+                        voxel_size=voxel_size,
+                        num_classes=3),
         positional_encoding=dict(type='mmdet.SinePositionalEncoding',
                                  num_feats=128,
                                  normalize=True,
@@ -137,7 +139,9 @@ train_transforms = test_transforms
 
 file_client_args = dict(backend='disk')
 train_pipeline = [
-    dict(type='LoadMultiViewImageFromFiles', to_float32=True, num_views=num_views),
+    dict(type='LoadMultiViewImageFromFiles',
+         to_float32=True,
+         num_views=num_views),
     dict(type='filename2img_path'),
     dict(type='PhotoMetricDistortionMultiViewImage'),
     dict(type='LoadAnnotations3D',
@@ -151,25 +155,25 @@ train_pipeline = [
 ]
 
 test_pipeline = [
-    dict(type='LoadMultiViewImageFromFiles', to_float32=True, num_views=num_views),
-    dict(type='filename2img_path'),#fix it in ↑ via a PR
+    dict(type='LoadMultiViewImageFromFiles',
+         to_float32=True,
+         num_views=num_views),
+    dict(type='filename2img_path'),  #fix it in ↑ via a PR
     dict(type='MultiViewWrapper', transforms=test_transforms),
     dict(type='Pack3DDetInputs', keys=['img'])
 ]
 
 metainfo = dict(classes=class_names)
-data_prefix=dict(
-            pts='training/velodyne',
-            sweeps='training/velodyne',
-            CAM_FRONT='training/image_0',
-            CAM_FRONT_RIGHT='training/image_1',
-            CAM_FRONT_LEFT='training/image_2',
-            CAM_SIDE_RIGHT='training/image_3',
-            CAM_SIDE_LEFT='training/image_4',
-        )
-input_modality = dict(
-    use_lidar=True,
-    use_camera=True)
+data_prefix = dict(
+    pts='training/velodyne',
+    sweeps='training/velodyne',
+    CAM_FRONT='training/image_0',
+    CAM_FRONT_RIGHT='training/image_1',
+    CAM_FRONT_LEFT='training/image_2',
+    CAM_SIDE_RIGHT='training/image_3',
+    CAM_SIDE_LEFT='training/image_4',
+)
+input_modality = dict(use_lidar=True, use_camera=True)
 train_dataloader = dict(
     batch_size=1,
     num_workers=0,
@@ -186,7 +190,7 @@ train_dataloader = dict(
         modality=input_modality,
         test_mode=False,
         data_prefix=data_prefix,
-        cam_sync_instances = True,
+        cam_sync_instances=True,
         # we use box_type_3d='LiDAR' in kitti and nuscenes dataset
         # and box_type_3d='Depth' in sunrgbd and scannet dataset.
         box_type_3d='LiDAR'))
@@ -199,14 +203,14 @@ val_dataloader = dict(batch_size=1,
                       dataset=dict(type=dataset_type,
                                    data_root=data_root,
                                    ann_file='waymo_infos_val.pkl',
-                                   load_interval = 100,
+                                   load_interval=100,
                                    load_type='frame_based',
                                    pipeline=test_pipeline,
                                    metainfo=metainfo,
                                    modality=input_modality,
                                    test_mode=True,
                                    data_prefix=data_prefix,
-                                   cam_sync_instances = True,
+                                   cam_sync_instances=True,
                                    box_type_3d='LiDAR'))
 
 test_dataloader = val_dataloader
@@ -214,7 +218,7 @@ test_dataloader = val_dataloader
 val_evaluator = dict(
     type='WaymoMetric',
     ann_file='./data/waymo_dev1x/kitti_format/waymo_infos_val.pkl',
-    load_interval = 100,
+    load_interval=100,
     waymo_bin_file='./data/waymo_dev1x/waymo_format/gt.bin',
     data_root='./data/waymo_dev1x/waymo_format',
     metric='LET_mAP')

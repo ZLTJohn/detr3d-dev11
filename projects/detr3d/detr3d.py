@@ -1,6 +1,6 @@
 import os
 import time
-from typing import Dict, List, Optional, Sequence, OrderedDict
+from typing import Dict, List, Optional, OrderedDict, Sequence
 
 import numpy as np
 import torch
@@ -40,6 +40,7 @@ class Detr3D(MVXTwoStageDetector):
     # by _version=2 we identify older checkpoints
     # see self._load_from_state_dict()
     _version = 2
+
     def __init__(self,
                  data_preprocessor=None,
                  use_grid_mask=False,
@@ -150,7 +151,8 @@ class Detr3D(MVXTwoStageDetector):
         losses_pts = self.pts_bbox_head.loss_by_feat(*loss_inputs)
 
         if self.vis is not None:
-            self.vis.visualize(batch_gt_instances_3d, batch_input_metas, batch_inputs_dict.get('imgs', None))
+            self.vis.visualize(batch_gt_instances_3d, batch_input_metas,
+                               batch_inputs_dict.get('imgs', None))
         return losses_pts
 
     # original simple_test
@@ -194,7 +196,8 @@ class Detr3D(MVXTwoStageDetector):
         detsamples = self.add_pred_to_datasample(batch_data_samples,
                                                  results_list_3d)
         if self.vis is not None:
-            self.vis.visualize(results_list_3d, batch_input_metas, batch_inputs_dict.get('imgs', None))
+            self.vis.visualize(results_list_3d, batch_input_metas,
+                               batch_inputs_dict.get('imgs', None))
         return detsamples
 
     # may need speed-up
@@ -218,9 +221,9 @@ class Detr3D(MVXTwoStageDetector):
         return batch_input_metas
 
     def switch_box_xysize(self, results_list_3d):
-        """Switch box xy size and the orientation.
-           Since mmdet3d-v1.0.0 the box definition has changed.
-        
+        """Switch box xy size and the orientation. Since mmdet3d-v1.0.0 the box
+        definition has changed.
+
         Args:
             results_list_3d
         """
@@ -237,8 +240,8 @@ class Detr3D(MVXTwoStageDetector):
                               missing_keys: List[str],
                               unexpected_keys: List[str],
                               error_msgs: List[str]) -> None:
-        """Determine if the checkpoint is trained on older version of mmdet3d.
-        """
+        """Determine if the checkpoint is trained on older version of
+        mmdet3d."""
         version = local_metadata.get('version')
         if version != 2:
             self.old_ckpt = True
@@ -246,9 +249,10 @@ class Detr3D(MVXTwoStageDetector):
         else:
             self.old_ckpt = False
         super()._load_from_state_dict(state_dict, prefix, local_metadata,
-                                          strict, missing_keys,
-                                          unexpected_keys, error_msgs)
-    #     super()._load_from_state_dict(**kwargs) 
+                                      strict, missing_keys, unexpected_keys,
+                                      error_msgs)
+
+
 # #https://github.com/open-mmlab/mmdetection3d/pull/2110
 # update_info_BUG_FIX = True
 

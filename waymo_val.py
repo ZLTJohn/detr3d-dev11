@@ -1,7 +1,8 @@
+import mmengine
 from mmdet3d.evaluation.metrics import WaymoMetric
 from mmdet3d.registry import METRICS
 from mmdet3d.utils import register_all_modules, replace_ceph_backend
-import mmengine
+
 register_all_modules(init_default_scope=False)
 val_evaluator = dict(
     type='WaymoMetric',
