@@ -1,6 +1,6 @@
 _base_ = [
     # '.../mmdetection3d/configs/_base_/datasets/nus-3d.py',
-    '/home/zhenglt/mmdev11/mmdet3d-latest/configs/_base_/default_runtime.py'
+    'mmdet3d::configs/_base_/default_runtime.py'
 ]
 
 custom_imports = dict(imports=['projects.detr3d'])
@@ -26,7 +26,7 @@ input_modality = dict(use_lidar=False,
 # this means type='Detr3D' will be processed as 'mmdet3d.Detr3D'
 default_scope = 'mmdet3d'
 model = dict(
-    type='Detr3D_old',
+    type='Detr3D',
     use_grid_mask=True,
     data_preprocessor=dict(type='Det3DDataPreprocessor',
                            **img_norm_cfg,

@@ -1,13 +1,13 @@
 _base_ = [
     # '../../../mmdetection3d/configs/_base_/datasets/nus-3d.py',
     # '/home/zhenglt/mmdev11/mmdet3d-latest/configs/_base_/datasets/nus-3d.py',
-    '/home/zhenglt/mmdev11/mmdet3d-latest/configs/_base_/default_runtime.py'
+    'mmdet3d::configs/_base_/default_runtime.py'
 ]
 #### debugging no auto_fp32
 #### Resize3D
 # plugin=True
 # plugin_dir='projects/mmdet3d_plugin/'
-custom_imports = dict(imports=['projects.mmdet3d_plugin'])
+custom_imports = dict(imports=['projects.detr3d'])
 # If point cloud range is changed, the models should also change their point
 # cloud range accordingly
 point_cloud_range = [-51.2, -51.2, -5.0, 51.2, 51.2, 3.0]
