@@ -364,6 +364,8 @@ def feature_sampling(mlvl_feats,
             pc_range: perception range of the detector
             img_metas (list[dict]): Meta information of multiple inputs
                 in a batch, containing `lidar2img`.
+            no_sampling (bool): If set 'True', the function will return
+                2D projected points and mask only.
         Returns:
             ref_pt_3d (Tensor): A copy of original ref_pt
             sampled_feats (Tensor): sampled features with shape \

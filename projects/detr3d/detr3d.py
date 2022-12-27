@@ -10,8 +10,7 @@ from mmdet3d.structures import Det3DDataSample
 from mmdet3d.structures.bbox_3d.utils import get_lidar2img
 from torch import Tensor
 
-from projects.detr3d.grid_mask import GridMask
-
+from .grid_mask import GridMask
 from .vis_zlt import visualizer_zlt
 
 

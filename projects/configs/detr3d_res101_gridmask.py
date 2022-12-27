@@ -226,7 +226,6 @@ train_cfg = dict(type='EpochBasedTrainLoop',
                  val_interval=2)
 val_cfg = dict(type='ValLoop')
 test_cfg = dict(type='TestLoop')
-# checkpoint_config = dict(interval=1, max_keep_ckpts=1)
 default_hooks = dict(checkpoint=dict(
     type='CheckpointHook', interval=1, max_keep_ckpts=1, save_last=True))
 load_from = 'ckpts/fcos3d_yue.pth'

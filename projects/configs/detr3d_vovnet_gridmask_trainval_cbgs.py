@@ -1,6 +1,6 @@
 _base_ = [
     # '.../mmdetection3d/configs/_base_/datasets/nus-3d.py',
-    './detr3d_res101_gridmask_cbgs_dev-1.x_test_old.py'
+    './detr3d_res101_gridmask.py',
     'mmdet3d::configs/_base_/default_runtime.py'
 ]
 
