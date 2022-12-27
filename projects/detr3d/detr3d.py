@@ -1,6 +1,6 @@
 import os
 import time
-from typing import Dict, List, Optional, Sequence
+from typing import Dict, List, Optional, Sequence, OrderedDict
 
 import numpy as np
 import torch
@@ -10,7 +10,7 @@ from mmdet3d.structures import Det3DDataSample
 from mmdet3d.structures.bbox_3d.utils import get_lidar2img
 from torch import Tensor
 
-from projects.mmdet3d_plugin.models.utils.grid_mask import GridMask
+from projects.detr3d.grid_mask import GridMask
 
 from .vis_zlt import visualizer_zlt
 
@@ -37,7 +37,9 @@ class Detr3D(MVXTwoStageDetector):
         init_cfg (dict, optional): Initialize config of
             model. Defaults to None.
     """
-
+    # by _version=2 we identify older checkpoints
+    # see self._load_from_state_dict()
+    _version = 2
     def __init__(self,
                  data_preprocessor=None,
                  use_grid_mask=False,
@@ -186,6 +188,9 @@ class Detr3D(MVXTwoStageDetector):
 
         results_list_3d = self.pts_bbox_head.predict_by_feat(
             outs, batch_input_metas, **kwargs)
+        if self.old_ckpt:
+            results_list_3d = self.switch_box_xysize(results_list_3d)
+            # change the bboxes' format
         detsamples = self.add_pred_to_datasample(batch_data_samples,
                                                  results_list_3d)
         if self.vis is not None:
@@ -212,7 +217,38 @@ class Detr3D(MVXTwoStageDetector):
             meta['lidar2img'] = l2i
         return batch_input_metas
 
+    def switch_box_xysize(self, results_list_3d):
+        """Switch box xy size and the orientation.
+           Since mmdet3d-v1.0.0 the box definition has changed.
+        
+        Args:
+            results_list_3d
+        """
+        for item in results_list_3d:
+            #cx, cy, cz, w, l, h, rot, vx, vy
+            item.bboxes_3d.tensor[..., [3, 4]] = \
+                item.bboxes_3d.tensor[...,[4, 3]]
+            item.bboxes_3d.tensor[..., 6] = \
+                -item.bboxes_3d.tensor[..., 6] - np.pi / 2
+        return results_list_3d
 
+    def _load_from_state_dict(self, state_dict: OrderedDict, prefix: str,
+                              local_metadata: Dict, strict: bool,
+                              missing_keys: List[str],
+                              unexpected_keys: List[str],
+                              error_msgs: List[str]) -> None:
+        """Determine if the checkpoint is trained on older version of mmdet3d.
+        """
+        version = local_metadata.get('version')
+        if version != 2:
+            self.old_ckpt = True
+            print('DETR3D using checkpoint trained on mmdet3d-0.17.3')
+        else:
+            self.old_ckpt = False
+        super()._load_from_state_dict(state_dict, prefix, local_metadata,
+                                          strict, missing_keys,
+                                          unexpected_keys, error_msgs)
+    #     super()._load_from_state_dict(**kwargs) 
 # #https://github.com/open-mmlab/mmdetection3d/pull/2110
 # update_info_BUG_FIX = True
 

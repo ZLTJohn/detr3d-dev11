@@ -19,7 +19,7 @@ from mmengine.model import bias_init_with_prob
 from mmengine.structures import InstanceData
 from torch import Tensor
 
-from projects.mmdet3d_plugin.models.task_modules.util import normalize_bbox
+from projects.detr3d.task_modules.util import normalize_bbox
 
 # from projects.mmdet3d_plugin.models.utils.old_env import force_fp32
 

@@ -7,7 +7,7 @@ _base_ = [
 #### Resize3D 
 # plugin=True
 # plugin_dir='projects/mmdet3d_plugin/'
-custom_imports = dict(imports=['projects.mmdet3d_plugin'])
+custom_imports = dict(imports=['projects.detr3d'])
 # If point cloud range is changed, the models should also change their point
 # cloud range accordingly
 point_cloud_range = [-35, -75, -2, 75, 75, 4]
@@ -199,7 +199,7 @@ val_dataloader = dict(batch_size=1,
                       dataset=dict(type=dataset_type,
                                    data_root=data_root,
                                    ann_file='waymo_infos_val.pkl',
-                                   load_interval = 1,
+                                   load_interval = 100,
                                    load_type='frame_based',
                                    pipeline=test_pipeline,
                                    metainfo=metainfo,
@@ -214,7 +214,7 @@ test_dataloader = val_dataloader
 val_evaluator = dict(
     type='WaymoMetric',
     ann_file='./data/waymo_dev1x/kitti_format/waymo_infos_val.pkl',
-    load_interval = 1,
+    load_interval = 100,
     waymo_bin_file='./data/waymo_dev1x/waymo_format/gt.bin',
     data_root='./data/waymo_dev1x/waymo_format',
     metric='LET_mAP')
