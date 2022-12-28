@@ -1,8 +1,4 @@
-_base_ = [
-    # '.../mmdetection3d/configs/_base_/datasets/nus-3d.py',
-    './detr3d_res101_gridmask.py',
-    'mmdet3d::configs/_base_/default_runtime.py'
-]
+_base_ = ['./detr3d_res101_gridmask.py']
 
 custom_imports = dict(imports=['projects.detr3d'])
 # If point cloud range is changed, the models should also change their point
@@ -59,6 +55,7 @@ data_prefix = dict(pts='',
                    CAM_BACK_LEFT='samples/CAM_BACK_LEFT')
 
 train_dataloader = dict(
+    _delete_ = True,
     batch_size=1,
     num_workers=4,
     persistent_workers=True,

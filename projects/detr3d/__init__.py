@@ -7,3 +7,14 @@ from .task_modules.hungarian_assigner_3d import HungarianAssigner3D
 from .task_modules.match_cost import BBox3DL1Cost
 from .task_modules.nms_free_coder import NMSFreeCoder
 from .transform_3d import PhotoMetricDistortionMultiViewImage
+
+__all__=['VoVNet',
+'Detr3D',
+'Detr3DHead',
+'Detr3DTransformer',
+'Detr3DTransformerDecoder',
+'Detr3DCrossAtten',
+'HungarianAssigner3D',
+'BBox3DL1Cost',
+'NMSFreeCoder',
+'PhotoMetricDistortionMultiViewImage']

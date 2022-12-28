@@ -5,8 +5,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from mmcv.cnn import Linear
-from mmdet3d.models.task_modules.builder import \
-    build_bbox_coder  # need to change
 from mmdet3d.registry import MODELS, TASK_UTILS
 from mmdet.models.dense_heads import DETRHead
 from mmdet.models.layers import inverse_sigmoid
@@ -56,7 +54,7 @@ class Detr3DHead(DETRHead):
         self.code_size = code_size
         self.code_weights = code_weights
 
-        self.bbox_coder = build_bbox_coder(bbox_coder)
+        self.bbox_coder = TASK_UTILS.build(bbox_coder)
         self.pc_range = self.bbox_coder.pc_range
         self.num_cls_fcs = num_cls_fcs - 1
         super(Detr3DHead, self).__init__(*args,

@@ -1,7 +1,7 @@
 _base_ = [
     # '../../../mmdetection3d/configs/_base_/datasets/nus-3d.py',
     # '/home/zhenglt/mmdev11/mmdet3d-latest/configs/_base_/datasets/nus-3d.py',
-    'mmdet3d::configs/_base_/default_runtime.py'
+    'mmdet3d::_base_/default_runtime.py'
 ]
 #### debugging no auto_fp32
 #### Resize3D
