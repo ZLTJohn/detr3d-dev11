@@ -4,5 +4,6 @@ mmdetection3d
 results
 tools
 *.pyc
-work_dirs/
+work_dirs*/
 debug/
+tmp*

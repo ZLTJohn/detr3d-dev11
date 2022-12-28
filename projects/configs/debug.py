@@ -3,8 +3,8 @@ _base_ = [
     # '/home/zhenglt/mmdev11/mmdet3d-latest/configs/_base_/datasets/nus-3d.py',
     'mmdet3d::_base_/default_runtime.py'
 ]
-#### debugging no auto_fp32
-#### Resize3D
+# # debugging no auto_fp32
+# # Resize3D
 # plugin=True
 # plugin_dir='projects/mmdet3d_plugin/'
 custom_imports = dict(imports=['projects.detr3d'])
@@ -146,7 +146,7 @@ train_pipeline = [
     dict(type='MultiViewWrapper', transforms=train_transforms),
     dict(type='ObjectRangeFilter', point_cloud_range=point_cloud_range),
     dict(type='ObjectNameFilter', classes=class_names),
-    # # dict(type='LidarBox3dVersionTransfrom'),  #petr's solution
+    # # dict(type='LidarBox3dVersionTransfrom'),  # petr's solution
     # dict(type='NormalizeMultiviewImage', **img_norm_cfg),
     # dict(type='PadMultiViewImage', size_divisor=32),
     dict(type='Pack3DDetInputs', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
@@ -154,7 +154,7 @@ train_pipeline = [
 
 test_pipeline = [
     dict(type='LoadMultiViewImageFromFiles', to_float32=True, num_views=6),
-    dict(type='filename2img_path'),  #fix it in ↑ via a PR
+    dict(type='filename2img_path'),  # fix it in ↑ via a PR
     # dict(type='NormalizeMultiviewImage', **img_norm_cfg),
     dict(type='MultiViewWrapper', transforms=test_transforms),
     # dict(type='AddPointCloudFilename'),
@@ -250,9 +250,8 @@ default_hooks = dict(checkpoint=dict(
     type='CheckpointHook', interval=1, max_keep_ckpts=1, save_last=True))
 load_from = 'ckpts/fcos3d_yue.pth'
 
-# ERROR: pip's dependency resolver does not currently take into account all the packages that are installed. This behaviour is the source of the following dependency conflicts.
-# jupyter-packaging 0.12.3 requires setuptools>=60.2.0, but you have setuptools 58.0.4 which is incompatible.
-# setuptools 65 downgrades to 58.In mmlab-node we use setuptools 61 but occurs NO errors
+# setuptools 65 downgrades to 58.
+# In mmlab-node we use setuptools 61 but occurs NO errors
 vis_backends = [dict(type='TensorboardVisBackend')]
 visualizer = dict(type='Det3DLocalVisualizer',
                   vis_backends=vis_backends,
@@ -280,7 +279,7 @@ visualizer = dict(type='Det3DLocalVisualizer',
 # traffic_cone    0.539   0.525   0.310   nan     nan     nan
 # barrier 0.475   0.616   0.294   0.129   nan     nan
 
-#train 900x1600, val 928x1600
+# train 900x1600, val 928x1600
 # mAP: 0.3379
 # mATE: 0.7973
 # mASE: 0.2700

@@ -14,7 +14,7 @@ model = dict(type='DETR3D',
                                     **img_norm_cfg,
                                     pad_size_divisor=32),
              img_backbone=dict(
-                 _delete_ = True, 
+                 _delete_=True,
                  type='VoVNet',
                  spec_name='V-99-eSE',
                  norm_eval=True,
@@ -30,9 +30,7 @@ model = dict(type='DETR3D',
                            relu_before_extra_convs=True))
 
 train_dataloader = dict(dataset=dict(
-    type='CBGSDataset',
-    dataset=dict(
-        ann_file='nuscenes_infos_trainval.pkl')))
+    type='CBGSDataset', dataset=dict(ann_file='nuscenes_infos_trainval.pkl')))
 # before fixing h,w bug in feature-sampling
 # mAP: 0.7103
 # mATE: 0.5395

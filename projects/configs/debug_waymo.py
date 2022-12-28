@@ -3,8 +3,8 @@ _base_ = [
     # '/home/zhenglt/mmdev11/mmdet3d-latest/configs/_base_/datasets/nus-3d.py',
     'mmdet3d::_base_/default_runtime.py'
 ]
-#### debugging no auto_fp32
-#### Resize3D
+# # debugging no auto_fp32
+# # Resize3D
 # plugin=True
 # plugin_dir='projects/mmdet3d_plugin/'
 custom_imports = dict(imports=['projects.detr3d'])
@@ -31,7 +31,7 @@ default_scope = 'mmdet3d'
 model = dict(
     type='DETR3D',
     use_grid_mask=True,
-    # debug_vis_cfg = debug_vis_cfg,
+    # debug_vis_cfg=debug_vis_cfg,
     data_preprocessor=dict(type='Det3DDataPreprocessor',
                            **img_norm_cfg,
                            pad_size_divisor=32),
@@ -63,10 +63,11 @@ model = dict(
         num_query=900,
         num_classes=3,
         in_channels=256,
-        code_size=
-        8,  #we don't infer velocity here, but infer(x,y,z,w,h,l,sin(θ),cos(θ)) for bboxes
-        code_weights=[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
-                      1.0],  #specify the weights since default length is 10
+        code_size=8,
+        # we don't infer velocity here,
+        # but infer(cx,cy,l,w,cz,h,sin(φ),cos(φ)) for bboxes
+        # specify the weights since default code_size is 10
+        code_weights=[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
         sync_cls_avg_factor=True,
         with_box_refine=True,
         as_two_stage=False,
@@ -135,7 +136,7 @@ test_transforms = [
          ratio_range=(1., 1.),
          keep_ratio=False)
 ]
-train_transforms = test_transforms
+train_transforms = [dict(type='PhotoMetricDistortion3D')] + test_transforms
 
 file_client_args = dict(backend='disk')
 train_pipeline = [
@@ -143,7 +144,7 @@ train_pipeline = [
          to_float32=True,
          num_views=num_views),
     dict(type='filename2img_path'),
-    dict(type='PhotoMetricDistortionMultiViewImage'),
+    # dict(type='PhotoMetricDistortionMultiViewImage'),
     dict(type='LoadAnnotations3D',
          with_bbox_3d=True,
          with_label_3d=True,
@@ -158,7 +159,7 @@ test_pipeline = [
     dict(type='LoadMultiViewImageFromFiles',
          to_float32=True,
          num_views=num_views),
-    dict(type='filename2img_path'),  #fix it in ↑ via a PR
+    dict(type='filename2img_path'),  # fix it in ↑ via a PR
     dict(type='MultiViewWrapper', transforms=test_transforms),
     dict(type='Pack3DDetInputs', keys=['img'])
 ]
@@ -255,7 +256,8 @@ val_cfg = dict(type='ValLoop')
 test_cfg = dict(type='TestLoop')
 default_hooks = dict(checkpoint=dict(
     type='CheckpointHook', interval=1, max_keep_ckpts=1, save_last=True))
-load_from = 'ckpts/waymo_pretrain_pgd_mv_8gpu_for_detr3d_backbone_statedict_only.pth'
+load_from = \
+    'ckpts/waymo_pretrain_pgd_mv_8gpu_for_detr3d_backbone_statedict_only.pth'
 
 vis_backends = [dict(type='TensorboardVisBackend')]
 visualizer = dict(type='Det3DLocalVisualizer',

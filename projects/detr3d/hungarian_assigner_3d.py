@@ -69,8 +69,8 @@ class HungarianAssigner3D(BaseAssigner):
            and assign the corresponding gt index (plus 1) to it.
         Args:
             bbox_pred (Tensor): Predicted boxes with normalized coordinates
-                (cx,cy,l,w,cz,h,sin(φ),cos(φ),v_x,v_y) which are all in range [0, 1].
-                Shape [num_query, 10].
+                (cx,cy,l,w,cz,h,sin(φ),cos(φ),v_x,v_y) which are all in
+                range [0, 1] and shape [num_query, 10].
             cls_pred (Tensor): Predicted classification logits, shape
                 [num_query, num_class].
             gt_bboxes (Tensor): Ground truth boxes with unnormalized
@@ -84,7 +84,7 @@ class HungarianAssigner3D(BaseAssigner):
         """
         assert gt_bboxes_ignore is None, \
             'Only case when gt_bboxes_ignore is None is supported.'
-        num_gts, num_bboxes = gt_bboxes.size(0), bbox_pred.size(0)  #9, 900
+        num_gts, num_bboxes = gt_bboxes.size(0), bbox_pred.size(0)  # 9, 900
 
         # 1. assign -1 by default
         assigned_gt_inds = bbox_pred.new_full((num_bboxes, ),

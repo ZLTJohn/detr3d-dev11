@@ -1,22 +1,19 @@
 import copy
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Dict, List, Tuple
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from mmcv.cnn import Linear
 from mmdet3d.registry import MODELS, TASK_UTILS
 from mmdet.models.dense_heads import DETRHead
 from mmdet.models.layers import inverse_sigmoid
 from mmdet.models.utils import multi_apply
-from mmdet.structures import SampleList
-from mmdet.utils import (ConfigType, InstanceList, OptConfigType,
-                         OptInstanceList, OptMultiConfig, reduce_mean)
+from mmdet.utils import InstanceList, OptInstanceList, reduce_mean
 from mmengine.model import bias_init_with_prob
 from mmengine.structures import InstanceData
 from torch import Tensor
 
-from .task_modules.util import normalize_bbox
+from .util import normalize_bbox
 
 
 @MODELS.register_module()
@@ -32,7 +29,8 @@ class DETR3DHead(DETRHead):
             the Encoder and Decoder.
         bbox_coder (obj:`ConfigDict`): Configs to build the bbox coder
         num_cls_fcs (int) : the number of layers in cls and reg branch
-        code_weights (List[double]) : loss weights of (cx,cy,l,w,cz,h,sin(φ),cos(φ),v_x,v_y)
+        code_weights (List[double]) : loss weights of
+            (cx,cy,l,w,cz,h,sin(φ),cos(φ),v_x,v_y)
         code_size (int) : size of code_weights
     """
 
@@ -124,11 +122,12 @@ class DETR3DHead(DETRHead):
                 network, each is a 5D-tensor with shape
                 (B, N, C, H, W).
         Returns:
-            all_cls_scores (Tensor): Outputs from the classification head, \
-                shape [nb_dec, bs, num_query, cls_out_channels]. Note \
+            all_cls_scores (Tensor): Outputs from the classification head,
+                shape [nb_dec, bs, num_query, cls_out_channels]. Note
                 cls_out_channels should includes background.
-            all_bbox_preds (Tensor): Sigmoid outputs from the regression \
-                head with normalized coordinate format (cx, cy, l, w, cz, h, sin(φ), cos(φ), vx, vy). \
+            all_bbox_preds (Tensor): Sigmoid outputs from the regression
+                head with normalized coordinate format
+                (cx, cy, l, w, cz, h, sin(φ), cos(φ), vx, vy).
                 Shape [nb_dec, bs, num_query, 10].
         """
         query_embeds = self.query_embedding.weight
@@ -231,10 +230,10 @@ class DETR3DHead(DETRHead):
                 neg_inds)
 
     def get_targets(
-            self,  #get_targets
+            self,
             batch_cls_scores: List[Tensor],  # bs[num_q,num_cls]
             batch_bbox_preds: List[Tensor],  # bs[num_q,10]
-            batch_gt_instances_3d: InstanceList) ->...:
+            batch_gt_instances_3d: InstanceList) -> tuple():
         """"Compute regression and classification targets for a batch image for
         a single decoder layer.
 
@@ -244,7 +243,8 @@ class DETR3DHead(DETRHead):
                 cls_out_channels].
             batch_bbox_preds (list[Tensor]): Sigmoid outputs from a single
                 decoder layer for each image, with normalized coordinate
-                (cx,cy,l,w,cz,h,sin(φ),cos(φ),v_x,v_y) and shape [num_query, 10]
+                (cx,cy,l,w,cz,h,sin(φ),cos(φ),v_x,v_y) and
+                shape [num_query, 10]
             batch_gt_instances_3d (list[:obj:`InstanceData`]): Batch of
                 gt_instance.  It usually includes ``bboxes_3d``、``labels_3d``.
         Returns:
@@ -273,10 +273,11 @@ class DETR3DHead(DETRHead):
                 bbox_weights_list, num_total_pos, num_total_neg)
 
     def loss_by_feat_single(
-            self,
-            batch_cls_scores: Tensor,  # bs,num_q,num_cls
-            batch_bbox_preds: Tensor,  # bs,num_q,10
-            batch_gt_instances_3d: InstanceList) ->...:
+        self,
+        batch_cls_scores: Tensor,  # bs,num_q,num_cls
+        batch_bbox_preds: Tensor,  # bs,num_q,10
+        batch_gt_instances_3d: InstanceList
+    ) -> Tuple[Tensor, Tensor]:
         """"Loss function for outputs from a single decoder layer of a single
         feature level.
 
@@ -286,9 +287,10 @@ class DETR3DHead(DETRHead):
                 cls_out_channels].
             batch_bbox_preds (Tensor): Sigmoid outputs from a single
                 decoder layer for batched images, with normalized coordinate
-                (cx,cy,l,w,cz,h,sin(φ),cos(φ),v_x,v_y) and shape [num_query, 10]
+                (cx,cy,l,w,cz,h,sin(φ),cos(φ),v_x,v_y) and
+                shape [num_query, 10]
             batch_gt_instances_3d (list[:obj:`InstanceData`]): Batch of
-                gt_instance_3d.  It usually includes ``bboxes_3d``、``labels_3d``.
+                gt_instance_3d. It usually has ``bboxes_3d``,``labels_3d``.
         Returns:
             tulple(Tensor, Tensor): cls and reg loss for outputs from
                 a single decoder layer.
@@ -386,8 +388,8 @@ class DETR3DHead(DETRHead):
         loss_dict = dict()
         # loss of proposal generated from encode feature map.
         if enc_cls_scores is not None:
-            enc_loss_cls, enc_losses_bbox = \
-                self.loss_by_feat_single(enc_cls_scores, enc_bbox_preds, batch_gt_instances_3d_list)
+            enc_loss_cls, enc_losses_bbox = self.loss_by_feat_single(
+                enc_cls_scores, enc_bbox_preds, batch_gt_instances_3d_list)
             loss_dict['enc_loss_cls'] = enc_loss_cls
             loss_dict['enc_loss_bbox'] = enc_losses_bbox
 
@@ -416,7 +418,8 @@ class DETR3DHead(DETRHead):
                     shape [nb_dec, bs, num_query, cls_out_channels]. Note
                     cls_out_channels should includes background.
                 -all_bbox_preds (Tensor): Sigmoid outputs from the regression
-                    head with normalized coordinate format (cx, cy, l, w, cz, h, rot_sine, rot_cosine, v_x, v_y).
+                    head with normalized coordinate format
+                    (cx, cy, l, w, cz, h, rot_sine, rot_cosine, v_x, v_y).
                     Shape [nb_dec, bs, num_query, 10].
             batch_img_metas (list[dict]): Meta information of each image, e.g.,
                 image size, scaling factor, etc.

@@ -122,12 +122,11 @@ test_transforms = [
          ratio_range=(1., 1.),
          keep_ratio=True)
 ]
-train_transforms = test_transforms
+train_transforms = [dict(type='PhotoMetricDistortion3D')] + test_transforms
 
 file_client_args = dict(backend='disk')
 train_pipeline = [
     dict(type='LoadMultiViewImageFromFiles', to_float32=True, num_views=6),
-    dict(type='PhotoMetricDistortionMultiViewImage'),
     dict(type='LoadAnnotations3D',
          with_bbox_3d=True,
          with_label_3d=True,
@@ -230,10 +229,8 @@ default_hooks = dict(checkpoint=dict(
     type='CheckpointHook', interval=1, max_keep_ckpts=1, save_last=True))
 load_from = 'ckpts/fcos3d_yue.pth'
 
-# ERROR: pip's dependency resolver does not currently take into account all the packages that are installed.
-# This behaviour is the source of the following dependency conflicts.
-# jupyter-packaging 0.12.3 requires setuptools>=60.2.0, but you have setuptools 58.0.4 which is incompatible.
-# setuptools 65 downgrades to 58.In mmlab-node we use setuptools 61 but occurs NO errors
+# setuptools 65 downgrades to 58.
+# In mmlab-node we use setuptools 61 but occurs NO errors
 vis_backends = [dict(type='TensorboardVisBackend')]
 visualizer = dict(type='Det3DLocalVisualizer',
                   vis_backends=vis_backends,

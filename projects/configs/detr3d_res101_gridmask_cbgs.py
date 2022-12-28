@@ -30,11 +30,10 @@ test_transforms = [
          ratio_range=(1., 1.),
          keep_ratio=True)
 ]
-train_transforms = test_transforms
+train_transforms = [dict(type='PhotoMetricDistortion3D')] + test_transforms
 
 train_pipeline = [
     dict(type='LoadMultiViewImageFromFiles', to_float32=True, num_views=6),
-    dict(type='PhotoMetricDistortionMultiViewImage'),
     dict(type='LoadAnnotations3D',
          with_bbox_3d=True,
          with_label_3d=True,
@@ -55,7 +54,7 @@ data_prefix = dict(pts='',
                    CAM_BACK_LEFT='samples/CAM_BACK_LEFT')
 
 train_dataloader = dict(
-    _delete_ = True,
+    _delete_=True,
     batch_size=1,
     num_workers=4,
     persistent_workers=True,

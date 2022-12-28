@@ -1,4 +1,4 @@
-from typing import List, Optional, Union
+from typing import Union
 
 import torch
 from mmdet3d.registry import TASK_UTILS
@@ -21,10 +21,11 @@ class BBox3DL1Cost(object):
 
         Args:
             bbox_pred (Tensor): Predicted boxes with normalized coordinates
-                (cx,cy,l,w,cz,h,sin(φ),cos(φ),v_x,v_y) which are all in range [0, 1].
-                Shape [num_query, 10].
+                (cx,cy,l,w,cz,h,sin(φ),cos(φ),v_x,v_y)
+                which are all in range [0, 1] and shape [num_query, 10].
             gt_bboxes (Tensor): Ground truth boxes with `normalized`
-                coordinates (cx,cy,l,w,cz,h,sin(φ),cos(φ),v_x,v_y). Shape [num_gt, 10].
+                coordinates (cx,cy,l,w,cz,h,sin(φ),cos(φ),v_x,v_y).
+                Shape [num_gt, 10].
         Returns:
             Tensor: Match Cost matrix of shape (num_preds, num_gts).
         """
