@@ -15,7 +15,7 @@ from .vis_zlt import visualizer_zlt
 
 
 @MODELS.register_module()
-class Detr3D(MVXTwoStageDetector):
+class DETR3D(MVXTwoStageDetector):
     """DETR3D: 3D Object Detection from Multi-view Images via 3D-to-2D Queries
 
     Args:
@@ -50,7 +50,7 @@ class Detr3D(MVXTwoStageDetector):
                  test_cfg=None,
                  pretrained=None,
                  debug_vis_cfg=None):
-        super(Detr3D, self).__init__(img_backbone=img_backbone,
+        super(DETR3D, self).__init__(img_backbone=img_backbone,
                                      img_neck=img_neck,
                                      pts_bbox_head=pts_bbox_head,
                                      train_cfg=train_cfg,

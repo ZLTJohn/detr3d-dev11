@@ -6,9 +6,9 @@ img_norm_cfg = dict(mean=[103.530, 116.280, 123.675],
                     std=[57.375, 57.120, 58.395],
                     bgr_to_rgb=False)
 
-# this means type='Detr3D' will be processed as 'mmdet3d.Detr3D'
+# this means type='DETR3D' will be processed as 'mmdet3d.DETR3D'
 default_scope = 'mmdet3d'
-model = dict(type='Detr3D',
+model = dict(type='DETR3D',
              use_grid_mask=True,
              data_preprocessor=dict(type='Det3DDataPreprocessor',
                                     **img_norm_cfg,

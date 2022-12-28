@@ -27,7 +27,7 @@ input_modality = dict(use_lidar=True,
                       use_radar=False,
                       use_map=False,
                       use_external=False)
-# this means type='Detr3D' will be processed as 'mmdet3d.Detr3D'
+# this means type='DETR3D' will be processed as 'mmdet3d.DETR3D'
 debug_vis_cfg = dict(debug_dir='debug/visualization',
                      gt_range=[0, 105],
                      pc_range=point_cloud_range,
@@ -35,7 +35,7 @@ debug_vis_cfg = dict(debug_dir='debug/visualization',
                      debug_name='dev1x_watch')
 default_scope = 'mmdet3d'
 model = dict(
-    type='Detr3D',
+    type='DETR3D',
     use_grid_mask=True,
     debug_vis_cfg=debug_vis_cfg,
     data_preprocessor=dict(type='Det3DDataPreprocessor',
@@ -61,7 +61,7 @@ model = dict(
                   num_outs=4,
                   relu_before_extra_convs=True),
     pts_bbox_head=dict(
-        type='Detr3DHead',
+        type='DETR3DHead',
         num_query=900,
         num_classes=10,
         in_channels=256,

@@ -33,7 +33,7 @@ def inverse_sigmoid(x, eps=1e-5):
 
 @MODELS.register_module()
 class Detr3DTransformer(BaseModule):
-    """Implements the Detr3D transformer.
+    """Implements the DETR3D transformer.
 
     Args:
         as_two_stage (bool): Generate query from encoder features.

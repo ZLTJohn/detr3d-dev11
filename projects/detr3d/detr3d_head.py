@@ -20,8 +20,8 @@ from .task_modules.util import normalize_bbox
 
 
 @MODELS.register_module()
-class Detr3DHead(DETRHead):
-    """Head of Detr3D.
+class DETR3DHead(DETRHead):
+    """Head of DETR3D.
 
     Args:
         with_box_refine (bool): Whether to refine the reference points
@@ -57,7 +57,7 @@ class Detr3DHead(DETRHead):
         self.bbox_coder = TASK_UTILS.build(bbox_coder)
         self.pc_range = self.bbox_coder.pc_range
         self.num_cls_fcs = num_cls_fcs - 1
-        super(Detr3DHead, self).__init__(*args,
+        super(DETR3DHead, self).__init__(*args,
                                          transformer=transformer,
                                          **kwargs)
         # DETR sampling=False, so use PseudoSampler, format the result
