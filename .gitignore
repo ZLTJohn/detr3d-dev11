@@ -7,3 +7,4 @@ tools
 work_dirs*/
 debug/
 tmp*
+projects/detr3d/debug_cfg.py
