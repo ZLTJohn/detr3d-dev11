@@ -36,7 +36,7 @@ default_scope = 'mmdet3d'
 model = dict(
     type='DETR3D',
     use_grid_mask=True,
-    debug_vis_cfg=debug_vis_cfg,
+    # debug_vis_cfg=debug_vis_cfg,
     data_preprocessor=dict(type='Det3DDataPreprocessor',
                            **img_norm_cfg,
                            pad_size_divisor=32),
@@ -213,12 +213,7 @@ val_dataloader = dict(batch_size=1,
 test_dataloader = val_dataloader
 
 val_evaluator = dict(
-    type='WaymoMetric',
-    ann_file='./data/waymo_dev1x/kitti_format/waymo_infos_val.pkl',
-    load_interval=100,
-    waymo_bin_file='./data/waymo_dev1x/waymo_format/gt_validation_subset_100.bin',
-    data_root='./data/waymo_dev1x/waymo_format',
-    metric='LET_mAP')
+    type='Argo2Metric')
 test_evaluator = val_evaluator
 
 optim_wrapper = dict(
