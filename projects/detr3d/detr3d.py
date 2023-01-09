@@ -145,7 +145,8 @@ class DETR3D(MVXTwoStageDetector):
         ]
         loss_inputs = [batch_gt_instances_3d, outs]
         losses_pts = self.pts_bbox_head.loss_by_feat(*loss_inputs)
-
+        # TODO: maybe we can watch gt instances in eval_ann_info when testing
+        # BUG: eval_ann_info not tensor but np.array!
         if self.vis is not None:
             self.vis.visualize(batch_gt_instances_3d, batch_input_metas,
                                batch_inputs_dict.get('imgs', None))
@@ -192,6 +193,9 @@ class DETR3D(MVXTwoStageDetector):
         detsamples = self.add_pred_to_datasample(batch_data_samples,
                                                  results_list_3d)
         if self.vis is not None:
+            ann_infos = [item.eval_ann_info for item in batch_data_samples]
+            # self.vis.visualize(ann_infos, batch_input_metas,
+            #                 batch_inputs_dict.get('imgs', None))
             self.vis.visualize(results_list_3d, batch_input_metas,
                                batch_inputs_dict.get('imgs', None))
         return detsamples
@@ -209,11 +213,16 @@ class DETR3D(MVXTwoStageDetector):
         """
         for meta in batch_input_metas:
             l2i = list()
+            ori_l2i = list()
             for i in range(len(meta['cam2img'])):
                 c2i = torch.tensor(meta['cam2img'][i]).double()
                 l2c = torch.tensor(meta['lidar2cam'][i]).double()
                 l2i.append(get_lidar2img(c2i, l2c).float().numpy())
+
+                ori_c2i = torch.tensor(meta['ori_cam2img'][i]).double()
+                ori_l2i.append(get_lidar2img(ori_c2i, l2c).float().numpy())
             meta['lidar2img'] = l2i
+            meta['ori_lidar2img'] = ori_l2i
         return batch_input_metas
 
 

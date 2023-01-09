@@ -1,6 +1,9 @@
+import math
 import os
 import os.path as osp
 import time
+from copy import copy
+from pathlib import Path
 
 # import cv2
 # import copy
@@ -9,6 +12,9 @@ import numpy as np
 import torch
 import torchvision.transforms as Trans
 import torchvision.utils as vutils
+from av2.structures.sweep import Sweep
+from mmdet3d.structures import LiDARInstance3DBoxes
+from mmengine.structures import InstanceData
 from PIL import Image, ImageDraw, ImageFont
 
 from .detr3d_transformer import feature_sampling
@@ -16,6 +22,7 @@ from .detr3d_transformer import feature_sampling
 # lidar_path, img_path
 
 
+# TODO: add colors to object front
 class visualizer_zlt():
 
     def __init__(self,
@@ -24,7 +31,8 @@ class visualizer_zlt():
                  pc_range=[-51.2, -51.2, -5.0, 51.2, 51.2, 3.0],
                  vis_count=300,
                  debug_name=None,
-                 draw_box=True):
+                 draw_box=True,
+                 gt_or_pred='gt'):
         self.debug_dir = debug_dir
         self.gt_range = gt_range
         self.vis_count = vis_count
@@ -32,6 +40,7 @@ class visualizer_zlt():
         self.identity_range = [0, 0, 0, 1, 1, 1]
         self.draw_box = draw_box
         self.PIL_transform = Trans.ToPILImage()
+        self.gt_or_pred = gt_or_pred
         if debug_name is None:
             self.debug_name = str(time.time())
         else:
@@ -46,11 +55,15 @@ class visualizer_zlt():
             self.pts_dim = 5
         else:
             self.ds_name = 'argo2'
-            self.pts_dim = -1  # not implemented
+            self.pts_dim = -1
 
     def load_pts(self, path):
-        points = np.fromfile(path, dtype=np.float32)
-        return points.reshape(-1, self.pts_dim)
+        if self.pts_dim == -1:
+            sweep = Sweep.from_feather(Path(path))
+            return sweep.xyz
+        else:
+            points = np.fromfile(path, dtype=np.float32)
+            return points.reshape(-1, self.pts_dim)
 
     def load_imgs(self, img_paths):
         # imgs = [cv2.imread(path) for path in img_paths]
@@ -108,10 +121,22 @@ class visualizer_zlt():
             'cpu', torch.uint8).numpy()
         return Image.fromarray(ndarr)
 
+    def toInstance(self, instances_3d, device=torch.device('cuda', 0)):
+        breakpoint()
+        gt_instances_3d = InstanceData()
+        bboxes = instances_3d['gt_bboxes_3d'].to(device)
+        labels = torch.tensor(instances_3d['gt_labels_3d']).to(device)
+        gt_instances_3d['bboxes_3d'] = bboxes
+        gt_instances_3d['labels_3d'] = labels
+
+        return self.add_score(gt_instances_3d)
+
     def visualize(self, instances_3d=None, img_meta=None, img=None):
         # support only one sample once
         if type(instances_3d) == list:
             instances_3d = instances_3d[0]
+        if type(instances_3d) == dict:
+            instances_3d = self.toInstance(instances_3d)
         if type(img_meta) == list:
             img_meta = img_meta[0]
         img_paths = img_meta['img_path']
@@ -130,14 +155,20 @@ class visualizer_zlt():
                 pc = self.load_pts(img_meta['lidar_path'])
                 self.save_bev(pc, instances_3d, dirname, filename)
             img_from_file = self.load_imgs(img_paths)
-            self.save_bbox2img(img_from_file, instances_3d, img_meta, dirname,
+            metacopy = copy(img_meta)
+            metacopy['lidar2img'] = metacopy['ori_lidar2img']
+            # (height, width) , not verified on waymo and nus
+            w = max([i.size[0] for i in img_from_file])
+            h = max([i.size[1] for i in img_from_file])
+            metacopy['pad_shape'] = h, w
+            self.save_bbox2img(img_from_file, instances_3d, metacopy, dirname,
                                filename)
 
         if img is not None:
             if img.dim() == 5:
                 img = img[0]
             N, C, H, W = img.size()
-            self.save_input_images(img, img_meta)
+            # self.save_input_images(img, img_meta)
             img_from_tensor = [self.tensor_to_PIL(i) for i in img]
             self.save_bbox2img(img_from_tensor, instances_3d, img_meta,
                                dirname, filename + '_tsr')
@@ -166,27 +197,31 @@ class visualizer_zlt():
                                         self.identity_range, [img_meta],
                                         no_sampling=True)
         pt_cam = pt_cam.squeeze()
-        mask = mask.squeeze()
+        mask = mask.squeeze()  # [cam, gt]
         pt_cam[..., 0] *= w
         pt_cam[..., 1] *= h
         print(ref_pt.size())
         breakpoint()
         draws = [ImageDraw.Draw(i) for i in imgs]
-        for i in range(num_cam):
-            self.draw_img_center(draws[i], pt_cam[i], mask[i], instances_3d)
 
         if self.draw_box:
             corners_pt = gt_bboxes_3d.corners.view(1, -1, 3)  # 1 num_gt*8 3
-            corners_cam, _ = feature_sampling(None,
-                                              corners_pt,
-                                              self.identity_range, [img_meta],
-                                              no_sampling=True)
+            corners_cam, mask_corner = feature_sampling(None,
+                                                        corners_pt,
+                                                        self.identity_range,
+                                                        [img_meta],
+                                                        no_sampling=True)
             corners_cam = corners_cam.squeeze()  # num_cam num_gt*8 2
             corners_cam[..., 0] *= w
             corners_cam[..., 1] *= h
-
+            # TODO: a box should be printed out as long as one of 9 is in the image
+            mask_corner = mask_corner.squeeze().reshape(num_cam, -1, 8)
+            mask = (mask | (mask_corner.any(-1)))
             for i in range(num_cam):
                 self.draw_img_bbox(draws[i], corners_cam[i], mask[i])
+
+        for i in range(num_cam):
+            self.draw_img_center(draws[i], pt_cam[i], mask[i], instances_3d)
 
         for i in range(num_cam):
             out_name = dirname + '/{}_{}.png'.format(name, i)
@@ -229,6 +264,22 @@ class visualizer_zlt():
         draw.line([pt0, pt1], fill=color, width=1)
         # cv2.line(img_out, pt0, pt1, color, thickness=1)
 
+    def add_egocar(self, instances_3d):
+        # width: 1.8403966418483375
+        # length: 4.42378805432057
+        # height: 1.490000000000009
+        box_tsr = instances_3d.bboxes_3d.tensor
+        box = [0] * box_tsr.shape[-1]
+        box[:7] = [0, 0, 0, 4.4, 1.8, 1.5, 0]
+        ego_tensor = torch.tensor(box).reshape(1, -1).to(box_tsr)
+        zero = torch.tensor(0).reshape(1).to(box_tsr)
+        ego = InstanceData()
+        ego.bboxes_3d = LiDARInstance3DBoxes(ego_tensor,
+                                             box_dim=ego_tensor.shape[1])
+        ego.labels_3d = zero
+        ego.scores_3d = zero
+        return InstanceData.cat([instances_3d, ego])
+
     def save_bev(self, pts, instances_3d, dirname, out_name=None):
         if isinstance(pts, list):
             pts = pts[0]
@@ -254,6 +305,7 @@ class visualizer_zlt():
                 im[(x_img.long() + i).clamp(min=0, max=x_max),
                    (y_img.long() + j).clamp(min=0, max=y_max), :] = 1
 
+        instances_3d = self.add_egocar(instances_3d.clone())
         ref = instances_3d.bboxes_3d.gravity_center
         print('reference', ref.size())
         ref_pts_x = ((ref[..., 0] - pc_range[0]) / res).round().long()
@@ -272,6 +324,7 @@ class visualizer_zlt():
             dy = 0  # random.randint(0,20)*30
             if i % 10 == 0:
                 color = self.get_color()
+                color_front = self.get_color()
             score_type = str(int(instances_3d.labels_3d[i]))
             # + str(round(float(instances_3d.scores_3d[i]),2))[1:]
             draw.text((x + r - 3, y + r - 3), score_type, color, font=font)
@@ -284,16 +337,61 @@ class visualizer_zlt():
         if self.draw_box:
             # 1 num_gt*4 3
             corners = instances_3d.bboxes_3d.corners[:, ::2, :].view(-1, 3)
-            ref_pts_x = ((corners[..., 0] - pc_range[0]) / res).round().long()
-            ref_pts_y = ((corners[..., 1] - pc_range[1]) / res).round().long()
+            corners_x = ((corners[..., 0] - pc_range[0]) / res).round().long()
+            corners_y = ((corners[..., 1] - pc_range[1]) / res).round().long()
             for j in range(num_q):
-                drawx = ref_pts_y[j * 4:j * 4 + 4]
-                drawy = ref_pts_x[j * 4:j * 4 + 4]
+                drawx = corners_y[j * 4:j * 4 + 4]
+                drawy = corners_x[j * 4:j * 4 + 4]
                 pts = [(int(drawx[i]), int(drawy[i])) for i in [0, 1, 3, 2]]
                 draw.polygon(pts, outline=color, width=2)
+                #(x0y0z0, x0y1z1, x1y1z1, x1y0z0)
+                (fx, fy), r = self.get_circle_from_diam(pts[-2], pts[-1])
+                cx, cy = int(ref_pts_y[j]), int(ref_pts_x[j])
+                self.draw_arrowedLine(draw, (cx, cy), (fx, fy),
+                                      width=3,
+                                      color=color_front)
 
         img.save(out_name)
         # vutils.save_image(im, out_name)
+
+    def get_circle_from_diam(self, pt1, pt2):
+        d = ((pt1[0] - pt2[0])**2 + (pt1[1] - pt2[1])**2)**0.5
+        o = ((pt1[0] + pt2[0]) // 2, (pt1[1] + pt2[1]) // 2)
+        return o, d // 2
+
+    def draw_arrowedLine(self, draw, ptA, ptB, width=1, color=(0, 255, 0)):
+        """Draw line from ptA to ptB with arrowhead at ptB."""
+        # Draw the line without arrows
+        draw.line((ptA, ptB), width=width, fill=color)
+
+        # Now work out the arrowhead
+        # = it will be a triangle with one vertex at ptB
+        # - it will start at 95% of the length of the line
+        # - it will extend 8 pixels either side of the line
+        x0, y0 = ptA
+        x1, y1 = ptB
+        # Now we can work out the x,y coordinates of the bottom of the arrowhead triangle
+        xb = 0.7 * (x1 - x0) + x0
+        yb = 0.7 * (y1 - y0) + y0
+
+        # Work out the other two vertices of the triangle
+        # Check if line is vertical
+        if x0 == x1:
+            vtx0 = (xb - 5, yb)
+            vtx1 = (xb + 5, yb)
+        # Check if line is horizontal
+        elif y0 == y1:
+            vtx0 = (xb, yb + 5)
+            vtx1 = (xb, yb - 5)
+        else:
+            alpha = math.atan2(y1 - y0, x1 - x0) - 90 * math.pi / 180
+            a = 8 * math.cos(alpha)
+            b = 8 * math.sin(alpha)
+            vtx0 = (xb + a, yb + b)
+            vtx1 = (xb - a, yb - b)
+
+        # Now draw the arrowhead triangle
+        draw.polygon([vtx0, vtx1, ptB], fill=color)
 
 
 #             img_ret.append(img_out)
