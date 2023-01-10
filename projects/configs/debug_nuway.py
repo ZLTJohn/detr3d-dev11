@@ -6,14 +6,14 @@ _base_ = [
 default_scope = 'mmdet3d'
 custom_imports = dict(imports=['projects.detr3d'])
 point_cloud_range = [-35, -75, -2, 75, 75, 4]
-# class_names = [
-#     'car', 'truck', 'construction_vehicle', 'bus', 'trailer', 'barrier',
-#     'motorcycle', 'bicycle', 'pedestrian', 'traffic_cone'
-# ]
 nus_class_names = [
-    'car', 'truck', 'construction_vehicle', 'bus', 'trailer',
-    'motorcycle', 'bicycle', 'pedestrian'
+    'car', 'truck', 'construction_vehicle', 'bus', 'trailer', 'barrier',
+    'motorcycle', 'bicycle', 'pedestrian', 'traffic_cone'
 ]
+# nus_class_names = [
+#     'car', 'truck', 'construction_vehicle', 'bus', 'trailer',
+#     'motorcycle', 'bicycle', 'pedestrian'
+# ]
 
 nusc_test_transforms = [
     dict(type='RandomResize3D',
@@ -84,13 +84,15 @@ nusc_dataset_type = 'NuScenesDataset'
 nusc_data_root = 'data/nus_v2/'
 input_modality = dict(use_lidar=True,
                       use_camera=True)
-
+metainfo = dict(classes=nus_class_names)
+# this is absolutely needed to do label projection
 nusc_train_dataset = dict(type=nusc_dataset_type,
                           data_root=nusc_data_root,
                           ann_file='debug_val.pkl',
                           pipeline=nusc_train_pipeline,
                           load_type='frame_based',
                           modality=input_modality,
+                          metainfo=metainfo,
                           test_mode=False,
                           data_prefix=nusc_data_prefix,
                           box_type_3d='LiDAR')
@@ -101,14 +103,15 @@ nusc_val_dataset = dict(type=nusc_dataset_type,
                         load_type='frame_based',
                         pipeline=nusc_test_pipeline,
                         modality=input_modality,
+                        metainfo=metainfo,
                         test_mode=True,
                         data_prefix=nusc_data_prefix,
                         box_type_3d='LiDAR')
 
 waymo_val_dataset = dict(type='WaymoDataset',
                          data_root='data/waymo_dev1x/kitti_format',
-                         ann_file='waymo_infos_val.pkl',
-                         load_interval=5,
+                         ann_file='debug_val.pkl',
+                        #  load_interval=5,
                          load_type='frame_based',
                          pipeline=waymo_test_pipeline,
                          modality=input_modality,
@@ -126,7 +129,7 @@ train_dataloader = dict(
     dataset=nusc_train_dataset)
 
 val_dataloader = dict(batch_size=1,
-                      num_workers=0,
+                      num_workers=4,
                       persistent_workers=False,
                       drop_last=False,
                       sampler=dict(type='DefaultSampler', shuffle=False),

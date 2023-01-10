@@ -75,8 +75,6 @@ train_dataloader = dict(
         test_mode=False,
         data_prefix=data_prefix,
         cam_sync_instances=True,
-        # we use box_type_3d='LiDAR' in kitti and nuscenes dataset
-        # and box_type_3d='Depth' in sunrgbd and scannet dataset.
         box_type_3d='LiDAR'))
 
 val_dataloader = dict(batch_size=1,

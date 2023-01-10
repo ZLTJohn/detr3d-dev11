@@ -30,7 +30,7 @@ class Argo2Metric(CustomWaymoMetric):
                  split='val',
                  classes: list = CLASSES):
 
-        self.default_prefix = 'argo2 metric'
+        self.default_prefix = 'argo2'
         self.classes = classes
         self.sensor_root = sensor_root
         self.split = split
@@ -73,6 +73,17 @@ class Argo2Metric(CustomWaymoMetric):
 
         return metric_dict
 
+    def metrics_to_dict(self, metrics):
+        metric_names = metrics.keys().to_list()
+        classes = metrics.index.to_list()
+        k = classes.pop()
+        classes.insert(0, k)
+        details = {}
+        for cls in classes:
+            for metric in metric_names:
+                details[cls+'/'+metric] = metrics[metric][cls]
+        return details
+
     def argo2_evaluate(self, gt_file: str, pred_file: str) -> dict:
         import shutil
         from time import time
@@ -85,13 +96,14 @@ class Argo2Metric(CustomWaymoMetric):
         gts = read_feather(gt_file)
         competition_cfg = DetectionCfg(
             dataset_dir=Path(osp.join(self.sensor_root, self.split)))
-        # TODO: fix (dts,dts) but mAP!=1 problem
+        # (dts,dts) but mAP!=1 is because of over 100 objects per frame
+        # argo metric puts some computing on gts which is limited to 100/frame
         # gts,gts eval passed!
-        # TODO: fix metrics parsing error
-        dts, gts, metrics = evaluate(gts, gts, cfg=competition_cfg)
-        print('time usage of compute metric: {} s'.format(time() - _))
+        dts, gts, metrics = evaluate(dts, dts, cfg=competition_cfg)
         print(metrics)
-        return dict(metrics)
+        print('time usage of compute metric: {} s'.format(time() - _))
+        metrics = self.metrics_to_dict(metrics)
+        return metrics
 
     def to_argo2_feather(self, results, path, ins_key):
         print(f'Converting {ins_key} to argo2 format...')

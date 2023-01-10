@@ -58,6 +58,7 @@ class Argo2Dataset(KittiDataset):
                          **kwargs)
 
     # TODO: parse num_interior_pts to info and deal with it in pipeline
+    # num_lidar_pts
     def parse_ann_info(self, info: dict) -> dict:
         ann_info = Det3DDataset.parse_ann_info(self, info)
         if ann_info is None:

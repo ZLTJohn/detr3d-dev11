@@ -194,7 +194,7 @@ val_dataloader = dict(batch_size=1,
                                    box_type_3d='LiDAR'))
 
 test_dataloader = val_dataloader
-
+# val_evaluator = dict(type = 'CustomWaymoMetric',is_waymo_gt = False, is_waymo_pred = False)
 val_evaluator = dict(type='NuScenesMetric',
                      data_root=data_root,
                      ann_file=data_root + 'nuscenes_infos_val.pkl',

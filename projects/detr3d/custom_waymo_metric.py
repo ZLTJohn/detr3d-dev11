@@ -70,10 +70,8 @@ class CustomWaymoMetric(BaseMetric):
         """
         logger: MMLogger = MMLogger.get_current_instance()
         eval_tmp_dir = tempfile.TemporaryDirectory()
-        breakpoint()
-        # BUG: converted pedestrian mAP=0
-        # BUG: Ped mAP=0 during waymo val
-        LC = LabelConverter()
+        # breakpoint()
+        LC = LabelConverter(self.dataset_meta['classes'])
         LC.convert(results, 'gt_instances', self.is_waymo_gt)
         LC.convert(results, 'pred_instances_3d', self.is_waymo_pred)
         gt_file = osp.join(eval_tmp_dir.name, 'gt.bin')
@@ -110,7 +108,6 @@ class CustomWaymoMetric(BaseMetric):
             labels = result[ins_key]['labels_3d']
             scores = result[ins_key].get('scores_3d')
             sample_idx = result['sample_idx']
-
             for i in range(len(labels)):
                 class_name = self.classes[labels[i].item()]
                 (x, y, z, l, w, h, rot) = tuple(v.item()
@@ -148,12 +145,12 @@ class CustomWaymoMetric(BaseMetric):
 
 class LabelConverter:
 
-    def __init__(self):
-        self.waymo_class = ['Car', 'Pedestrian', 'Cyclist']
-        self.nusc_class = [
+    def __init__(self, dataset_class = [
             'car', 'truck', 'construction_vehicle', 'bus', 'trailer',
             'barrier', 'motorcycle', 'bicycle', 'pedestrian', 'traffic_cone'
-        ]
+        ]):
+        self.waymo_class = ['Car', 'Pedestrian', 'Cyclist']
+        self.nusc_class = dataset_class # fuck, they change order
         self.waymo2waymo = {i: i for i in self.waymo_class}
         self.nus2waymo = {
             'car': 'Car',
