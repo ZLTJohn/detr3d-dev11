@@ -64,7 +64,7 @@ class DETR3D(MVXTwoStageDetector):
             self.vis = None
 
     def extract_img_feat(self, img: Tensor,
-                         batch_input_metas: List[dict]) -> List[Tensor]:
+                         batch_input_metas: List[dict] = None) -> List[Tensor]:
         """Extract features from images.
 
         Args:
@@ -79,14 +79,15 @@ class DETR3D(MVXTwoStageDetector):
 
         B = img.size(0)
         if img is not None:
-            input_shape = img.shape[-2:]  # bs nchw
+            # Warning: deprecated
+            # input_shape = img.shape[-2:]  # bs nchw
             # update real input shape of each single img
-            for img_meta in batch_input_metas:
-                img_meta.update(input_shape=input_shape)
-
-            if img.dim() == 5 and img.size(0) == 1:
-                img.squeeze_()
-            elif img.dim() == 5 and img.size(0) > 1:
+            # for img_meta in batch_input_metas:
+            #     img_meta.update(input_shape=input_shape)
+            # if img.dim() == 5 and img.size(0) == 1:
+                # img.squeeze_()
+            # breakpoint()
+            if img.dim() == 5:
                 B, N, C, H, W = img.size()
                 img = img.view(B * N, C, H, W)
             if self.use_grid_mask:
@@ -112,7 +113,17 @@ class DETR3D(MVXTwoStageDetector):
         Refer to self.extract_img_feat()
         """
         imgs = batch_inputs_dict.get('imgs', None)
-        img_feats = self.extract_img_feat(imgs, batch_input_metas)
+        # TODO: check again
+        if batch_input_metas[0].get('flip'):
+            # need to flip to normal to get correct img_feat
+            img0_feats = self.extract_img_feat(imgs[:,0:1,...].transpose(-2,-1))
+            img0_feats = [x.transpose(-2,-1) for x in img0_feats]
+
+            imgs_feats = self.extract_img_feat(imgs[:,1: ,...])
+            img_feats = [torch.cat(x0xs, dim=1) 
+                            for x0xs in zip(img0_feats, imgs_feats)]
+        else:
+            img_feats = self.extract_img_feat(imgs, batch_input_metas)
         return img_feats
 
     def _forward(self):
@@ -194,10 +205,10 @@ class DETR3D(MVXTwoStageDetector):
                                                  results_list_3d)
         if self.vis is not None:
             ann_infos = [item.eval_ann_info for item in batch_data_samples]
-            # self.vis.visualize(ann_infos, batch_input_metas,
-            #                 batch_inputs_dict.get('imgs', None))
-            self.vis.visualize(results_list_3d, batch_input_metas,
-                               batch_inputs_dict.get('imgs', None))
+            self.vis.visualize(ann_infos, batch_input_metas,
+                            batch_inputs_dict.get('imgs', None))
+            # self.vis.visualize(results_list_3d, batch_input_metas,
+            #                    batch_inputs_dict.get('imgs', None))
         return detsamples
 
     # may need speed-up

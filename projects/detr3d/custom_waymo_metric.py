@@ -26,7 +26,7 @@ class CustomWaymoMetric(BaseMetric):
                  is_waymo_gt=True,
                  is_waymo_pred=True):
 
-        self.default_prefix = 'Waymo metric'
+        self.default_prefix = 'Waymo'
         self.classes = classes
         self.is_waymo_gt = is_waymo_gt
         self.is_waymo_pred = is_waymo_pred
@@ -71,7 +71,7 @@ class CustomWaymoMetric(BaseMetric):
         logger: MMLogger = MMLogger.get_current_instance()
         eval_tmp_dir = tempfile.TemporaryDirectory()
         # breakpoint()
-        LC = LabelConverter(self.dataset_meta['classes'])
+        LC = LabelConverter()
         LC.convert(results, 'gt_instances', self.is_waymo_gt)
         LC.convert(results, 'pred_instances_3d', self.is_waymo_pred)
         gt_file = osp.join(eval_tmp_dir.name, 'gt.bin')
