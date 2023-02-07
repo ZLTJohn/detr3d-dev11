@@ -3,6 +3,7 @@ from mmdet3d.datasets.transforms.loading import LoadMultiViewImageFromFiles
 import copy
 import mmengine
 import mmcv
+import numpy as np
 @TRANSFORMS.register_module()
 class filename2img_path:
 
@@ -12,10 +13,6 @@ class filename2img_path:
 
     def __repr__(self):
         return 'maybe we need to fix this bug'
-
-
-import numpy as np
-
 
 @TRANSFORMS.register_module()
 class ProjectLabelToWaymoClass(object):
@@ -127,3 +124,19 @@ class Argo2LoadMultiViewImageFromFiles(LoadMultiViewImageFromFiles):
         results['num_views'] = self.num_views
         results['num_ref_frames'] = self.num_ref_frames
         return results
+
+from typing import Any, Dict, Union
+
+from mmengine.registry import MODEL_WRAPPERS
+from mmengine.model.wrappers import MMDistributedDataParallel
+@MODEL_WRAPPERS.register_module()
+class CustomMMDDP(MMDistributedDataParallel):
+    # for argo2 flip front cam image in feature extraction in backbone
+    def __init__(self,
+                 module,
+                 static_graph = True,
+                 **kwargs):
+        super().__init__(module=module, **kwargs)
+        self.static_graph = static_graph
+        if static_graph:
+            self._set_static_graph()

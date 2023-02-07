@@ -1,11 +1,15 @@
-_base_ = ['./detr3d_res101_gridmask_cbgs.py']
+_base_ = ['./detr3d_res101_gridmask.py']
 
 custom_imports = dict(imports=['projects.detr3d'])
-
+point_cloud_range = [-51.2, -51.2, -5.0, 51.2, 51.2, 3.0]
 img_norm_cfg = dict(mean=[103.530, 116.280, 123.675],
                     std=[57.375, 57.120, 58.395],
                     bgr_to_rgb=False)
-
+# if torch.is_grad_enabled() and self.reducer._rebuild_buckets():
+# RuntimeError: Expected to have finished reduction in the prior iteration before starting a new one. This error indicates that your module has parameters that were not used in producing loss. You can enable unused parameter detection by passing the keyword argument `find_unused_parameters=True` to `torch.nn.parallel.DistributedDataParallel`, and by
+# making sure all `forward` function outputs participate in calculating loss.
+# If you already have done the above, then the distributed data parallel module wasn't able to locate the output tensors in the return value of your module's `forward` function. Please include the loss function and the structure of the return value of `forward` of your module when reporting this issue (e.g. list, dict, iterable).
+# Parameter indices which did not receive grad for rank 2: 255 256 257 258 259 260 261 262 263 264 265 266 267 268 269 270 271 272 273 274 275 276 277 278 279 280 281 282 283
 # this means type='DETR3D' will be processed as 'mmdet3d.DETR3D'
 default_scope = 'mmdet3d'
 model = dict(type='DETR3D',
@@ -29,8 +33,73 @@ model = dict(type='DETR3D',
                            num_outs=4,
                            relu_before_extra_convs=True))
 
-train_dataloader = dict(dataset=dict(
-    type='CBGSDataset', dataset=dict(ann_file='nuscenes_infos_trainval.pkl')))
+
+class_names = [
+    'car', 'truck', 'construction_vehicle', 'bus', 'trailer', 'barrier',
+    'motorcycle', 'bicycle', 'pedestrian', 'traffic_cone'
+]
+
+input_modality = dict(use_lidar=False,
+                      use_camera=True,
+                      use_radar=False,
+                      use_map=False,
+                      use_external=False)
+
+dataset_type = 'NuScenesDataset'
+data_root = 'data/nus_v2/'
+load_from = 'ckpts/dd3d_det_final.pth'# TODO: dont forget to update it in the release version!
+test_transforms = [
+    dict(type='RandomResize3D',
+         scale=(1600, 928),
+         ratio_range=(1., 1.),
+         keep_ratio=True)
+]
+train_transforms = [dict(type='PhotoMetricDistortion3D')] + test_transforms
+
+train_pipeline = [
+    dict(type='LoadMultiViewImageFromFiles', to_float32=True, num_views=6),
+    dict(type='LoadAnnotations3D',
+         with_bbox_3d=True,
+         with_label_3d=True,
+         with_attr_label=False),
+    dict(type='MultiViewWrapper', transforms=train_transforms),
+    dict(type='ObjectRangeFilter', point_cloud_range=point_cloud_range),
+    dict(type='ObjectNameFilter', classes=class_names),
+    dict(type='Pack3DDetInputs', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
+]
+
+metainfo = dict(classes=class_names)
+data_prefix = dict(pts='',
+                   CAM_FRONT='samples/CAM_FRONT',
+                   CAM_FRONT_LEFT='samples/CAM_FRONT_LEFT',
+                   CAM_FRONT_RIGHT='samples/CAM_FRONT_RIGHT',
+                   CAM_BACK='samples/CAM_BACK',
+                   CAM_BACK_RIGHT='samples/CAM_BACK_RIGHT',
+                   CAM_BACK_LEFT='samples/CAM_BACK_LEFT')
+
+train_dataloader = dict(
+    _delete_=True,
+    batch_size=1,
+    num_workers=4,
+    persistent_workers=True,
+    drop_last=False,
+    sampler=dict(type='DefaultSampler', shuffle=True),
+    dataset=dict(
+        type='CBGSDataset',
+        dataset=dict(
+            type=dataset_type,
+            data_root=data_root,
+            ann_file='nuscenes_infos_trainval.pkl',
+            pipeline=train_pipeline,
+            load_type='frame_based',
+            metainfo=metainfo,
+            modality=input_modality,
+            test_mode=False,
+            data_prefix=data_prefix,
+            # we use box_type_3d='LiDAR' in kitti and nuscenes dataset
+            # and box_type_3d='Depth' in sunrgbd and scannet dataset.
+            box_type_3d='LiDAR')))
+
 # before fixing h,w bug in feature-sampling
 # mAP: 0.7103
 # mATE: 0.5395

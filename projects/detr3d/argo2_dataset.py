@@ -40,12 +40,10 @@ class Argo2Dataset(KittiDataset):
             test_mode: bool = False,
             pcd_limit_range: List[float] = None,  #[0, -40, -3, 70.4, 40, 0.0],
             load_interval: int = 1,
-            flip_front_cam: bool = True,
             **kwargs) -> None:
         self.load_interval = load_interval
         self.cat_ids = range(len(CLASSES))
         self.cat2label = {cat_id: i for i, cat_id in enumerate(self.cat_ids)}
-        self.flip_front_cam = flip_front_cam
         super().__init__(data_root=data_root,
                          ann_file=ann_file,
                          pipeline=pipeline,

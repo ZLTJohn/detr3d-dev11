@@ -23,8 +23,8 @@ class CustomWaymoMetric(BaseMetric):
     def __init__(self,
                  collect_device: str = 'cpu',
                  classes: list = ['Car', 'Pedestrian', 'Cyclist'],
-                 is_waymo_gt=True,
-                 is_waymo_pred=True):
+                 is_waymo_gt=True, # whether the gt labels in the ORIGINAL dataset is in waymo_format
+                 is_waymo_pred=True): # whether the pred input is in waymo_format
 
         self.default_prefix = 'Waymo'
         self.classes = classes
@@ -195,3 +195,43 @@ class LabelConverter:
             for k in list(instances.keys()):
                 new_inst[k] = instances[k][valid == 1]
             result[key] = new_inst
+
+from mmdet3d.evaluation.metrics import NuScenesMetric
+from mmengine import load
+@METRICS.register_module()
+class CustomNuscMetric(NuScenesMetric):
+    def compute_metrics(self, results: List[dict]) -> Dict[str, float]:
+        logger: MMLogger = MMLogger.get_current_instance()
+
+        classes = ['car', 'pedestrian', 'bicycle']
+        self.version = self.dataset_meta['version']
+        # load annotations 
+        for result in results:
+            tsr = result['pred_instances_3d']['bboxes_3d'].tensor
+            query = tsr.shape[0]
+            new_tsr = torch.zeros((query,9))
+            new_tsr[:,:7] = tsr
+            result['pred_instances_3d']['bboxes_3d'].tensor = new_tsr
+            result['pred_instances_3d']['bboxes_3d'].box_dim = 9
+
+        self.data_infos = load(
+            self.ann_file, file_client_args=self.file_client_args)['data_list']
+        result_dict, tmp_dir = self.format_results(results, classes,
+                                                   self.jsonfile_prefix)
+
+        metric_dict = {}
+
+        if self.format_only:
+            logger.info('results are saved in '
+                        f'{osp.basename(self.jsonfile_prefix)}')
+            return metric_dict
+
+        for metric in self.metrics:
+            ap_dict = self.nus_evaluate(
+                result_dict, classes=classes, metric=metric, logger=logger)
+            for result in ap_dict:
+                metric_dict[result] = ap_dict[result]
+
+        if tmp_dir is not None:
+            tmp_dir.cleanup()
+        return metric_dict

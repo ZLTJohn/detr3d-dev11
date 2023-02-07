@@ -4,7 +4,7 @@ mmdetection3d
 results
 tools
 *.pyc
-work_dirs*/
+work_dirs*
 debug/
 tmp*
 projects/detr3d/debug_cfg.py

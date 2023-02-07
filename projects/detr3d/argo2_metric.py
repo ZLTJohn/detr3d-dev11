@@ -16,6 +16,12 @@ from mmengine.structures import InstanceData
 from pyquaternion import Quaternion
 
 from .custom_waymo_metric import CustomWaymoMetric
+import shutil
+from time import time
+
+from av2.evaluation.detection.eval import evaluate
+from av2.evaluation.detection.utils import DetectionCfg
+from av2.utils.io import read_feather
 
 CLASSES = [x.value for x in CompetitionCategories]
 
@@ -28,12 +34,14 @@ class Argo2Metric(CustomWaymoMetric):
                  collect_device: str = 'cpu',
                  sensor_root='data/argo2/',
                  split='val',
-                 classes: list = CLASSES):
+                 classes: list = CLASSES,
+                 result_path: str = None):
 
         self.default_prefix = 'argo2'
         self.classes = classes
         self.sensor_root = sensor_root
         self.split = split
+        self.result_path = result_path
         super(CustomWaymoMetric, self).__init__(collect_device=collect_device)
 
     def process(self, data_batch: dict, data_samples: Sequence[dict]) -> None:
@@ -67,6 +75,8 @@ class Argo2Metric(CustomWaymoMetric):
         pred_file = osp.join(eval_tmp_dir.name, 'pred.feather')
         gts = self.to_argo2_feather(results, gt_file, 'gt_instances')
         dts = self.to_argo2_feather(results, pred_file, 'pred_instances_3d')
+        if self.result_path is not None:
+            shutil.copy(pred_file, self.result_path)
         metric_dict = self.argo2_evaluate(gt_file, pred_file)
 
         eval_tmp_dir.cleanup()
@@ -85,12 +95,7 @@ class Argo2Metric(CustomWaymoMetric):
         return details
 
     def argo2_evaluate(self, gt_file: str, pred_file: str) -> dict:
-        import shutil
-        from time import time
 
-        from av2.evaluation.detection.eval import evaluate
-        from av2.evaluation.detection.utils import DetectionCfg
-        from av2.utils.io import read_feather
         _ = time()
         dts = read_feather(pred_file)
         gts = read_feather(gt_file)
@@ -99,7 +104,7 @@ class Argo2Metric(CustomWaymoMetric):
         # (dts,dts) but mAP!=1 is because of over 100 objects per frame
         # argo metric puts some computing on gts which is limited to 100/frame
         # gts,gts eval passed!
-        dts, gts, metrics = evaluate(dts, dts, cfg=competition_cfg)
+        dts, gts, metrics = evaluate(dts, gts, cfg=competition_cfg)
         print(metrics)
         print('time usage of compute metric: {} s'.format(time() - _))
         metrics = self.metrics_to_dict(metrics)
@@ -110,7 +115,6 @@ class Argo2Metric(CustomWaymoMetric):
         prog_bar = mmengine.ProgressBar(len(results))
         objs = pandas.DataFrame()
         gt_total = 0
-        # breakpoint()
         for result in results:
             bboxes = result[ins_key]['bboxes_3d'].tensor
             num_gt, dims = bboxes.shape
@@ -130,12 +134,14 @@ class Argo2Metric(CustomWaymoMetric):
             (x, y, z, l, w, h, yaw) = tuple(bboxes[..., i]
                                             for i in range(dims))
             z = z + h / 2
-            [qw, qx, qy, qz] = [[0] * num_gt] * 4
+            quats=[]
             for i in range(num_gt):
                 category.append(self.classes[labels[i]])
                 quat = Quaternion(axis=[0, 0, 1], radians=yaw[i])
-                qw[i], qx[i], qy[i], qz[i] = quat.q
+                quats.append(quat.q)
 
+            quats = np.stack(quats,axis=-1)
+            # ValueError: Found zero norm quaternions in `quat`.
             argo_info = pandas.DataFrame({
                 'tx_m': x,
                 'ty_m': y,
@@ -143,10 +149,10 @@ class Argo2Metric(CustomWaymoMetric):
                 'length_m': l,
                 'width_m': w,
                 'height_m': h,
-                'qw': qw,
-                'qx': qx,
-                'qy': qy,
-                'qz': qz,
+                'qw': quats[0],
+                'qx': quats[1],
+                'qy': quats[2],
+                'qz': quats[3],
                 'score': scores,
                 'num_interior_pts': num_interior_pts,
                 'log_id': log_id,
@@ -177,3 +183,5 @@ class Argo2Metric(CustomWaymoMetric):
 # log_id: Log id associated with the detection.1
 # timestamp_ns: Timestamp associated with the detection.1
 # category: Object category.
+
+# TODO: add format_result function to submit results
