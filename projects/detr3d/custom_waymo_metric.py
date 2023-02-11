@@ -23,11 +23,13 @@ class CustomWaymoMetric(BaseMetric):
     def __init__(self,
                  collect_device: str = 'cpu',
                  classes: list = ['Car', 'Pedestrian', 'Cyclist'],
+                 metainfo = None,  # the class names and order of gt labels and pred (when is_waymo_*=False)
                  is_waymo_gt=True, # whether the gt labels in the ORIGINAL dataset is in waymo_format
                  is_waymo_pred=True): # whether the pred input is in waymo_format
 
         self.default_prefix = 'Waymo'
         self.classes = classes
+        self.metainfo = metainfo
         self.is_waymo_gt = is_waymo_gt
         self.is_waymo_pred = is_waymo_pred
         super().__init__(collect_device=collect_device)
@@ -47,6 +49,7 @@ class CustomWaymoMetric(BaseMetric):
         return gt_instances_3d
 
     def process(self, data_batch: dict, data_samples: Sequence[dict]) -> None:
+        breakpoint()
         for data_sample in data_samples:
             result = dict()
             pred_3d = data_sample['pred_instances_3d']
@@ -71,7 +74,7 @@ class CustomWaymoMetric(BaseMetric):
         logger: MMLogger = MMLogger.get_current_instance()
         eval_tmp_dir = tempfile.TemporaryDirectory()
         # breakpoint()
-        LC = LabelConverter()
+        LC = LabelConverter(self.metainfo)
         LC.convert(results, 'gt_instances', self.is_waymo_gt)
         LC.convert(results, 'pred_instances_3d', self.is_waymo_pred)
         gt_file = osp.join(eval_tmp_dir.name, 'gt.bin')
@@ -145,12 +148,9 @@ class CustomWaymoMetric(BaseMetric):
 
 class LabelConverter:
 
-    def __init__(self, dataset_class = [
-            'car', 'truck', 'construction_vehicle', 'bus', 'trailer',
-            'barrier', 'motorcycle', 'bicycle', 'pedestrian', 'traffic_cone'
-        ]):
+    def __init__(self, metainfo = None):
         self.waymo_class = ['Car', 'Pedestrian', 'Cyclist']
-        self.nusc_class = dataset_class # fuck, they change order
+        self.nusc_class = metainfo # fuck, they change order
         self.waymo2waymo = {i: i for i in self.waymo_class}
         self.nus2waymo = {
             'car': 'Car',
