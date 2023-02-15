@@ -57,11 +57,7 @@ class Argo2Metric(CustomWaymoMetric):
                 data_sample['eval_ann_info'])
             result['timestamp'] = data_sample['eval_ann_info']['timestamp']
             result['log_id'] = data_sample['eval_ann_info']['log_id']
-
-        # maybe it is a bug, since append should be in for loop
-        # we stay the same with kitti metric currently
-        # TODO: use samples=2 to check if it affects evaluation
-        self.results.append(result)
+            self.results.append(result)
 
     def compute_metrics(self, results: list) -> Dict[str, float]:
         """

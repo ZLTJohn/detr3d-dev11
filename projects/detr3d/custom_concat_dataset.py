@@ -47,3 +47,22 @@ class CustomConcatDataset(ConcatDataset):
         self._fully_initialized = False
         if not lazy_init:
             self.full_init()
+
+from mmdet3d.datasets import NuScenesDataset
+@DATASETS.register_module()
+class CustomNusc(NuScenesDataset):
+    # METAINFO = {
+    #     'classes':
+    #     ('Car', 'Pedestrian', 'Cyclist'),
+    #     'version':
+    #     'v1.0-trainval'
+    # }
+    def __init__(self,**kwargs):
+        self.load_interval = kwargs.pop('load_interval',1)
+        super().__init__(**kwargs)
+    
+    def load_data_list(self) -> List[dict]:
+        """Add the load interval."""
+        data_list = super().load_data_list()
+        data_list = data_list[::self.load_interval]
+        return data_list

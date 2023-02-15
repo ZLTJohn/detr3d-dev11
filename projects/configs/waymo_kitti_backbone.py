@@ -18,7 +18,7 @@ dataset_type = 'WaymoDataset'
 # data_root = '/localdata_ssd/waymo_ssd/kitti_format/'
 data_root = 'data/waymo_dev1x/kitti_format/'
 # data_root = 'data/waymo_v2_png/kitti_format/'
-img_scale = (1066, 1600)# wrong shit！
+img_scale = (1600,1066)
 test_transforms = [
     dict(type='RandomResize3D',
          scale=img_scale,
@@ -145,13 +145,13 @@ val_cfg = dict(type='ValLoop')
 test_cfg = dict(type='TestLoop')
 default_hooks = dict(checkpoint=dict(
     type='CheckpointHook', interval=1, max_keep_ckpts=1, save_last=True))
-load_from = 'ckpts/waymo_pretrain_fullres_pgd_mv_8gpu_for_detr3d_backbone_statedict_only.pth'
+load_from = 'ckpts/pgd_kitti_r101_backbone.pth'
 
 vis_backends = [dict(type='TensorboardVisBackend')]
 visualizer = dict(type='Det3DLocalVisualizer',
                   vis_backends=vis_backends,
                   name='visualizer')
 
-work_dir = './work_dirs_dev11/NusResEpoch1x'
+# work_dir = './work_dirs_dev11/NusResEpoch1x'
 # resume_from = '/home/zhenglt/mmdev11/detr3d-dev11/work_dirs_dev11/NusResEpoch1x/epoch_20.pth'
 # resume = True

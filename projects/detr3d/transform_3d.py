@@ -15,14 +15,19 @@ class filename2img_path:
         return 'maybe we need to fix this bug'
 
 @TRANSFORMS.register_module()
-class ProjectLabelToWaymoClass(object):
+class evalann2ann:
 
-    def __init__(self,
-                 class_names=None,
-                 waymo_name=['Car', 'Pedestrian', 'Cyclist']):
-        self.class_names = class_names
-        self.waymo_name = waymo_name
-        self.name_map = {
+    def __call__(self, results):
+        breakpoint()
+        results['ann_info'] = results['eval_ann_info']
+        return results
+
+    def __repr__(self):
+        return 'maybe we need to fix this bug'
+
+@TRANSFORMS.register_module()
+class ProjectLabelToWaymoClass(object):
+    NUSC_NAME_MAP = {
             'car': 'Car',
             'truck': 'Car',
             'construction_vehicle': 'Car',
@@ -30,19 +35,35 @@ class ProjectLabelToWaymoClass(object):
             'trailer': 'Car',
             'motorcycle': 'Car',
             'bicycle': 'Cyclist',
-            'pedestrian': 'Pedestrian'
-        }
+            'pedestrian': 'Pedestrian'}
+
+    def __init__(self,
+                 class_names=None,
+                 waymo_name=['Car', 'Pedestrian', 'Cyclist'],
+                 name_map=NUSC_NAME_MAP):
+        self.class_names = class_names
+        self.waymo_name = waymo_name
+        self.name_map = name_map
         ind_N2W = []
         for i, n_name in enumerate(self.class_names):
-            ind_N2W.append(waymo_name.index(self.name_map[n_name]))
+            if n_name in self.name_map:
+                w_ind = waymo_name.index(self.name_map[n_name])
+            else:
+                w_ind = -1
+            ind_N2W.append(w_ind)
         self.ind_N2W = np.array(ind_N2W)
-
     # class_names = ['car', 'truck', 'construction_vehicle', 'bus', 'trailer', 'barrier',
     #                'motorcycle', 'bicycle', 'pedestrian', 'traffic_cone']
     # nusc2waymo = [0, 0, 0, 0, 0, -1, 0, 2, 1, -1]
+
     def __call__(self, results):
-        if len(results['gt_labels_3d']) > 0:
-            results['gt_labels_3d'] = self.ind_N2W[results['gt_labels_3d']]
+        labels = results['gt_labels_3d']
+        if len(labels) > 0:
+            labels = self.ind_N2W[labels]
+            mask = (labels != -1)
+            results['gt_labels_3d'] = labels[mask]
+            results['gt_bboxes_3d'] = results['gt_bboxes_3d'][mask]
+
         return results
 
     def __repr__(self):

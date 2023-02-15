@@ -18,19 +18,27 @@ from waymo_open_dataset.protos import metrics_pb2
 # more checks are needed for this module
 @METRICS.register_module()
 class CustomWaymoMetric(BaseMetric):
-    num_cams = 5
+    '''
+        Compute all prediction in waymo metric, regardless of original
+        dataset type
+        Usage:  1. Let 'test_mode' = False in val/test dataset;
+                2. Let 'test pipeline' process label in the same
+                    way as 'train pipeline' ;
+                3. (optional) In case to test model that does NOT 
+                    output 3-class, turn is_waymo_pred=False and 
+                    indicate taxnomy in 'metainfo' ;
+    '''
 
     def __init__(self,
                  collect_device: str = 'cpu',
                  classes: list = ['Car', 'Pedestrian', 'Cyclist'],
+                 prefix = 'Waymo',
                  metainfo = None,  # the class names and order of gt labels and pred (when is_waymo_*=False)
-                 is_waymo_gt=True, # whether the gt labels in the ORIGINAL dataset is in waymo_format
                  is_waymo_pred=True): # whether the pred input is in waymo_format
 
-        self.default_prefix = 'Waymo'
+        self.default_prefix = prefix
         self.classes = classes
         self.metainfo = metainfo
-        self.is_waymo_gt = is_waymo_gt
         self.is_waymo_pred = is_waymo_pred
         super().__init__(collect_device=collect_device)
         self.k2w_cls_map = {
@@ -40,31 +48,18 @@ class CustomWaymoMetric(BaseMetric):
             'Cyclist': label_pb2.Label.TYPE_CYCLIST,
         }
 
-    def toInstance3D(self, instances_3d, device=torch.device('cpu')):
-        gt_instances_3d = InstanceData()
-        bboxes = instances_3d['gt_bboxes_3d'].to(device)
-        labels = torch.tensor(instances_3d['gt_labels_3d']).to(device)
-        gt_instances_3d['bboxes_3d'] = bboxes
-        gt_instances_3d['labels_3d'] = labels
-        return gt_instances_3d
-
     def process(self, data_batch: dict, data_samples: Sequence[dict]) -> None:
-        breakpoint()
+        # TODO: add submission infos to support test set
+        # BUG: same config output differ, check if it's about precision loss during cuda to cpu
+        # or it's about the position of self.results.append()
         for data_sample in data_samples:
             result = dict()
-            pred_3d = data_sample['pred_instances_3d']
-            for attr_name in pred_3d:
-                pred_3d[attr_name] = pred_3d[attr_name].to('cpu')
-            result['pred_instances_3d'] = pred_3d
-            sample_idx = data_sample['sample_idx']
-            result['sample_idx'] = sample_idx
-            result['gt_instances'] = self.toInstance3D(
-                data_sample['eval_ann_info'])
-            # TODO: add submission infos to support test set
-        # maybe it is a bug, since append should be in for loop
-        # we stay the same with kitti metric currently
-        # TODO: use samples=2 to check if it affects evaluation
-        self.results.append(result)
+            result['pred_instances_3d'] = data_sample['pred_instances_3d']
+            result['sample_idx'] = data_sample['sample_idx']
+            result['gt_instances'] = data_sample['gt_instances_3d']
+            result['num_views'] = data_sample['num_views']
+            self.results.append(result)
+        
 
     def compute_metrics(self, results: list) -> Dict[str, float]:
         """
@@ -73,33 +68,16 @@ class CustomWaymoMetric(BaseMetric):
         """
         logger: MMLogger = MMLogger.get_current_instance()
         eval_tmp_dir = tempfile.TemporaryDirectory()
-        # breakpoint()
-        LC = LabelConverter(self.metainfo)
-        LC.convert(results, 'gt_instances', self.is_waymo_gt)
-        LC.convert(results, 'pred_instances_3d', self.is_waymo_pred)
+
         gt_file = osp.join(eval_tmp_dir.name, 'gt.bin')
         pred_file = osp.join(eval_tmp_dir.name, 'pred.bin')
         self.to_waymo_obj(results, gt_file, 'gt_instances')
         self.to_waymo_obj(results, pred_file, 'pred_instances_3d')
-        metric_dict = self.waymo_evaluate(gt_file, pred_file)
-
+        waymo_evaluator = Waymo_Evaluator()
+        metric_dict = waymo_evaluator.waymo_evaluate(gt_file, pred_file)
+        del waymo_evaluator
         eval_tmp_dir.cleanup()
-
         return metric_dict
-
-    def waymo_evaluate(self, gt_file: str, pred_file: str) -> dict:
-        import shutil
-        from time import time
-
-        from mmdet3d.evaluation.metrics.waymo_let_metric import \
-            compute_waymo_let_metric
-        _ = time()
-        shutil.copy(pred_file, 'results/result_{}.bin'.format(_))
-        print('save output bin to results/result_{}.bin'.format(_))
-        ap_dict = compute_waymo_let_metric(gt_file, pred_file)
-        print('time usage of compute_let_metric: {} s'.format(time() - _))
-
-        return ap_dict
 
     # TODO: skip wrapping to waymo bin objects
     def to_waymo_obj(self, results, path, ins_key):
@@ -145,7 +123,57 @@ class CustomWaymoMetric(BaseMetric):
                 It has {len(objs.objects)} objects in {len(results)} frames.')
         return objs
 
+class Waymo_Evaluator:
+    def __init__(self) -> None:
+        pass
+    def waymo_evaluate(self, gt_file: str, pred_file: str) -> dict:
+        import shutil
+        from time import time
+        from mmdet3d.evaluation.metrics.waymo_let_metric import \
+            compute_waymo_let_metric
+        _ = time()
+        shutil.copy(pred_file, 'results/result_{}.bin'.format(_))
+        print('save output bin to results/result_{}.bin'.format(_))
+        ap_dict = compute_waymo_let_metric(gt_file, pred_file)
+        print('time usage of compute_let_metric: {} s'.format(time() - _))
+        return ap_dict
 
+@METRICS.register_module()
+class JointMetric(CustomWaymoMetric):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.prefix = None
+        self.view2ds = {
+            5: 'waymo',
+            6: 'nuscenes',
+            7: 'argo2'
+        }
+
+    def compute_metrics(self, results: list) -> Dict[str, float]:
+        results_split = {
+            'waymo':[],
+            'nuscenes':[],
+            'argo2':[]
+        }
+        for item in results:
+            ds_name = self.view2ds[item['num_views']]
+            results_split[ds_name].append(item)
+
+        all_metrics = {}
+        for dataset_type in results_split:
+            if len(results_split[dataset_type]) == 0:
+                continue
+            metrics = super().compute_metrics(results_split[dataset_type])
+            for k, v in metrics.items():
+                all_metrics[dataset_type+'/'+k] = v
+        return all_metrics
+            
+
+# LabelConverter should be used ONLY when we are 
+# evaluating old model trained with 10 classes
+# use it in 'compute_metrics'
+# LC = LabelConverter(self.metainfo)
+# LC.convert(results, 'pred_instances_3d', self.is_waymo_pred)
 class LabelConverter:
 
     def __init__(self, metainfo = None):

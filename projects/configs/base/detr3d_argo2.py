@@ -11,7 +11,7 @@ debug_vis_cfg = dict(debug_dir='debug/visualization',
                      gt_range=[0, 150],
                      pc_range=point_cloud_range,
                      vis_count=100,
-                     debug_name='dev1x_watch')
+                     debug_name='val_best')
 img_norm_cfg = dict(mean=[123.675, 116.28, 103.53],
                     std=[58.395, 57.12, 57.375],
                     bgr_to_rgb=True)
@@ -19,7 +19,7 @@ model_wrapper_cfg = dict(type = 'CustomMMDDP', static_graph = True)
 model = dict(
     type='DETR3D',
     use_grid_mask=True,
-    # debug_vis_cfg=debug_vis_cfg,
+    debug_vis_cfg=debug_vis_cfg,
     data_preprocessor=dict(type='Det3DDataPreprocessor',
                            **img_norm_cfg,
                            pad_size_divisor=32),

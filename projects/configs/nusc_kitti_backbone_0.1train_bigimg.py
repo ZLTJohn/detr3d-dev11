@@ -7,6 +7,8 @@ _base_ = [
 custom_imports = dict(imports=['projects.detr3d'])
 # this means type='DETR3D' will be processed as 'mmdet3d.DETR3D'
 default_scope = 'mmdet3d'
+model = dict(
+    img_backbone=dict(with_cp=True))
 # If point cloud range is changed, the models should also change their point
 # cloud range accordingly
 point_cloud_range = [-51.2, -51.2, -5.0, 51.2, 51.2, 3.0]
@@ -32,7 +34,7 @@ data_root = 'data/nus_v2/'
 
 test_transforms = [
     dict(type='RandomResize3D',
-         scale=(1600, 900),
+         scale=(2616, 1471),
          ratio_range=(1., 1.),
          keep_ratio=True)
 ]
@@ -65,7 +67,6 @@ data_prefix = dict(pts='',
                    CAM_BACK='samples/CAM_BACK',
                    CAM_BACK_RIGHT='samples/CAM_BACK_RIGHT',
                    CAM_BACK_LEFT='samples/CAM_BACK_LEFT')
-
 train_dataloader = dict(
     batch_size=1,
     num_workers=4,
@@ -73,7 +74,7 @@ train_dataloader = dict(
     drop_last=False,
     sampler=dict(type='DefaultSampler', shuffle=True),
     dataset=dict(
-        type=dataset_type,
+        type='CustomNusc',
         data_root=data_root,
         ann_file='nuscenes_infos_train.pkl',
         pipeline=train_pipeline,
@@ -81,6 +82,7 @@ train_dataloader = dict(
         metainfo=metainfo,
         modality=input_modality,
         test_mode=False,
+        load_interval=10,
         data_prefix=data_prefix,
         # we use box_type_3d='LiDAR' in kitti and nuscenes dataset
         # and box_type_3d='Depth' in sunrgbd and scannet dataset.
@@ -136,12 +138,11 @@ total_epochs = 24
 
 train_cfg = dict(type='EpochBasedTrainLoop',
                  max_epochs=total_epochs,
-                 val_interval=2)
+                 val_interval=8)
 val_cfg = dict(type='ValLoop')
 test_cfg = dict(type='TestLoop')
 default_hooks = dict(checkpoint=dict(
     type='CheckpointHook', interval=1, max_keep_ckpts=1, save_last=True))
-load_from = 'ckpts/fcos3d_yue.pth'
 
 # setuptools 65 downgrades to 58.
 # In mmlab-node we use setuptools 61 but occurs NO errors
@@ -149,117 +150,33 @@ vis_backends = [dict(type='TensorboardVisBackend')]
 visualizer = dict(type='Det3DLocalVisualizer',
                   vis_backends=vis_backends,
                   name='visualizer')
+load_from = 'ckpts/pgd_kitti_r101_backbone.pth'
 
-# before fixing h,w bug in feature-sampling
-# mAP: 0.3450
-# mATE: 0.7740
-# mASE: 0.2675
-# mAOE: 0.3960
-# mAVE: 0.8737
-# mAAE: 0.2156
-# NDS: 0.4198
-# Eval time: 161.5s
+# test_evaluator = val_evaluator
+# resume_from = ''
+# resume = True
 
-# Per-class results:
-# Object Class    AP      ATE     ASE     AOE     AVE     AAE
-# car     0.534   0.565   0.152   0.071   0.907   0.214
-# truck   0.285   0.839   0.213   0.114   0.984   0.229
-# bus     0.346   0.924   0.199   0.117   2.060   0.379
-# trailer 0.166   1.108   0.230   0.551   0.734   0.126
-# construction_vehicle    0.082   1.057   0.446   1.013   0.125   0.387
-# pedestrian      0.426   0.688   0.294   0.508   0.459   0.195
-# motorcycle      0.343   0.696   0.260   0.475   1.268   0.180
-# bicycle 0.275   0.691   0.275   0.578   0.452   0.015
-# traffic_cone    0.521   0.555   0.314   nan     nan     nan
-# barrier 0.473   0.619   0.293   0.138   nan     nan
-
-# after fixing h,w bug in feature-sampling
-# mAP: 0.3469
-# mATE: 0.7651
-# mASE: 0.2678
-# mAOE: 0.3916
-# mAVE: 0.8758
-# mAAE: 0.2110
-# NDS: 0.4223
-# Eval time: 117.2s
+# mAP: 0.2641
+# mATE: 0.8947
+# mASE: 0.2927
+# mAOE: 0.7136
+# mAVE: 1.2215
+# mAAE: 0.4204
+# NDS: 0.2999
+# Eval time: 125.3s
 
 # Per-class results:
 # Object Class    AP      ATE     ASE     AOE     AVE     AAE
-# car     0.546   0.544   0.152   0.070   0.911   0.208
-# truck   0.286   0.834   0.212   0.113   1.005   0.231
-# bus     0.346   0.870   0.196   0.116   2.063   0.383
-# trailer 0.167   1.106   0.233   0.549   0.687   0.093
-# construction_vehicle    0.082   1.060   0.449   0.960   0.120   0.384
-# pedestrian      0.424   0.700   0.295   0.512   0.462   0.194
-# motorcycle      0.340   0.709   0.259   0.489   1.288   0.176
-# bicycle 0.278   0.698   0.275   0.586   0.473   0.018
-# traffic_cone    0.529   0.526   0.313   nan     nan     nan
-# barrier 0.471   0.603   0.292   0.131   nan     nan
+# car     0.455   0.655   0.157   0.141   2.083   0.489
+# truck   0.208   0.941   0.240   0.258   1.315   0.385
+# bus     0.238   0.935   0.245   0.281   2.328   0.602
+# trailer 0.056   1.236   0.279   0.719   0.555   0.178
+# construction_vehicle    0.030   1.155   0.531   1.272   0.115   0.361
+# pedestrian      0.365   0.784   0.298   1.017   0.846   0.749
+# motorcycle      0.231   0.854   0.276   1.039   1.834   0.444
+# bicycle 0.242   0.819   0.288   1.430   0.695   0.155
+# traffic_cone    0.429   0.713   0.322   nan     nan     nan
+# barrier 0.389   0.854   0.292   0.264   nan     nan
 
-# kitti pretrain
-# mAP: 0.3267                                                                                                             
-# mATE: 0.8129
-# mASE: 0.2794
-# mAOE: 0.5076
-# mAVE: 0.9090
-# mAAE: 0.2290
-# NDS: 0.3896
-# Eval time: 186.9s
 
-# Per-class results:
-# Object Class    AP      ATE     ASE     AOE     AVE     AAE
-# car     0.526   0.561   0.151   0.084   0.979   0.243
-# truck   0.270   0.866   0.223   0.163   0.983   0.287
-# bus     0.343   0.918   0.226   0.144   2.122   0.433
-# trailer 0.120   1.208   0.248   0.554   0.568   0.088
-# construction_vehicle    0.056   1.135   0.497   1.217   0.138   0.394
-# pedestrian      0.416   0.717   0.294   0.568   0.531   0.233
-# motorcycle      0.316   0.732   0.260   0.687   1.438   0.135
-# bicycle 0.279   0.707   0.274   0.965   0.513   0.018
-# traffic_cone    0.501   0.578   0.328   nan     nan     nan
-# barrier 0.441   0.706   0.294   0.186   nan     nan
-
-# Nuway Scratch
-# mAP: 0.1151                                                                                                                                                                                                                              mATE: 0.8903
-# mASE: 0.7701
-# mAOE: 0.7937
-# mAVE: 1.0973
-# mAAE: 0.8055
-# NDS: 0.1316
-# Eval time: 137.1s
-
-# Per-class results:
-# Object Class    AP      ATE     ASE     AOE     AVE     AAE
-# car     0.427   0.530   0.149   0.067   1.986   0.480
-# truck   0.000   1.000   1.000   1.000   1.000   1.000
-# bus     0.000   1.000   1.000   1.000   1.000   1.000
-# trailer 0.000   1.000   1.000   1.000   1.000   1.000
-# construction_vehicle    0.000   1.000   1.000   1.000   1.000   1.000
-# pedestrian      0.413   0.696   0.291   0.510   0.870   0.758
-# motorcycle      0.000   1.000   1.000   1.000   1.000   1.000
-# bicycle 0.311   0.677   0.261   0.566   0.922   0.206
-# traffic_cone    0.000   1.000   1.000   nan     nan     nan
-# barrier 0.000   1.000   1.000   1.000   nan     nan
-
-# Nuway Waymo base
-# mAP: 0.1281
-# mATE: 0.8768
-# mASE: 0.7700
-# mAOE: 0.7622
-# mAVE: 1.1019
-# mAAE: 0.8039
-# NDS: 0.1428
-# Eval time: 130.1s
-
-# Per-class results:
-# Object Class    AP      ATE     ASE     AOE     AVE     AAE
-# car     0.469   0.482   0.144   0.052   2.077   0.486
-# truck   0.000   1.000   1.000   1.000   1.000   1.000
-# bus     0.000   1.000   1.000   1.000   1.000   1.000
-# trailer 0.000   1.000   1.000   1.000   1.000   1.000
-# construction_vehicle    0.000   1.000   1.000   1.000   1.000   1.000
-# pedestrian      0.466   0.640   0.291   0.407   0.858   0.752
-# motorcycle      0.000   1.000   1.000   1.000   1.000   1.000
-# bicycle 0.346   0.646   0.265   0.401   0.880   0.193
-# traffic_cone    0.000   1.000   1.000   nan     nan     nan
-# barrier 0.000   1.000   1.000   1.000   nan     nan
+# without pretrain neck: TO BE DONE!!!! @GPU38

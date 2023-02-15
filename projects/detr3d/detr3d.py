@@ -44,6 +44,8 @@ class DETR3D(MVXTwoStageDetector):
                  test_cfg=None,
                  pretrained=None,
                  debug_vis_cfg=None):
+        # BUG: backbone: The model and loaded state dict do not match exactly
+        # layer3.0.conv2.conv_offset.weight, layer3.0.conv2.conv_offset.bias ...
         super(DETR3D, self).__init__(img_backbone=img_backbone,
                                      img_neck=img_neck,
                                      pts_bbox_head=pts_bbox_head,
@@ -62,6 +64,7 @@ class DETR3D(MVXTwoStageDetector):
             self.vis = visualizer_zlt(**debug_vis_cfg)
         else:
             self.vis = None
+        self.last_time = 0
 
     def extract_img_feat(self, img: Tensor,
                          batch_input_metas: List[dict] = None) -> List[Tensor]:
@@ -114,11 +117,14 @@ class DETR3D(MVXTwoStageDetector):
         """
         imgs = batch_inputs_dict.get('imgs', None)
         # TODO: check again
-        if batch_input_metas[0].get('flip'):
+        # breakpoint()
+        if batch_input_metas[0].get('flip') is not None:
             # need to flip to normal to get correct img_feat
             img0_feats = self.extract_img_feat(imgs[:,0:1,...].transpose(-2,-1))
             img0_feats = [x.transpose(-2,-1) for x in img0_feats]
-
+            # double forward with checkpoint
+            # see https://discuss.pytorch.org/t/ddp-and-gradient-checkpointing/132244
+            # could also be solved by upgrade pytorch>1.9
             imgs_feats = self.extract_img_feat(imgs[:,1: ,...])
             img_feats = [torch.cat(x0xs, dim=1) 
                             for x0xs in zip(img0_feats, imgs_feats)]
@@ -146,6 +152,8 @@ class DETR3D(MVXTwoStageDetector):
             dict[str, Tensor]: A dictionary of loss components.
 
         """
+        # from time import time
+        # _ = time()
         batch_input_metas = [item.metainfo for item in batch_data_samples]
         batch_input_metas = self.add_lidar2img(batch_input_metas)
         img_feats = self.extract_feat(batch_inputs_dict, batch_input_metas)
@@ -161,6 +169,11 @@ class DETR3D(MVXTwoStageDetector):
         if self.vis is not None:
             self.vis.visualize(batch_gt_instances_3d, batch_input_metas,
                                batch_inputs_dict.get('imgs', None))
+        # torch.cuda.synchronize()
+        # print('finish loss', time()-_)
+        # print('whole iter', time()- self.last_time)
+        # self.last_time = time()
+        # # breakpoint()
         return losses_pts
 
     # original simple_test
@@ -192,6 +205,7 @@ class DETR3D(MVXTwoStageDetector):
             - bbox_3d (:obj:`BaseInstance3DBoxes`): Prediction of bboxes,
                 contains a tensor with shape (num_instances, 9).
         """
+        # breakpoint()
         batch_input_metas = [item.metainfo for item in batch_data_samples]
         batch_input_metas = self.add_lidar2img(batch_input_metas)
         img_feats = self.extract_feat(batch_inputs_dict, batch_input_metas)
@@ -204,11 +218,11 @@ class DETR3D(MVXTwoStageDetector):
         detsamples = self.add_pred_to_datasample(batch_data_samples,
                                                  results_list_3d)
         if self.vis is not None:
-            ann_infos = [item.eval_ann_info for item in batch_data_samples]
-            self.vis.visualize(ann_infos, batch_input_metas,
-                            batch_inputs_dict.get('imgs', None))
-            # self.vis.visualize(results_list_3d, batch_input_metas,
-            #                    batch_inputs_dict.get('imgs', None))
+            # ann_infos = [item.eval_ann_info for item in batch_data_samples]
+            # self.vis.visualize(ann_infos, batch_input_metas,
+            #                 batch_inputs_dict.get('imgs', None))
+            self.vis.visualize(results_list_3d, batch_input_metas,
+                               batch_inputs_dict.get('imgs', None))
         return detsamples
 
     # may need speed-up
@@ -228,6 +242,9 @@ class DETR3D(MVXTwoStageDetector):
             for i in range(len(meta['cam2img'])):
                 c2i = torch.tensor(meta['cam2img'][i]).double()
                 l2c = torch.tensor(meta['lidar2cam'][i]).double()
+                # l2c_t = l2c[0:3,3:4]
+                # noise = torch.randn_like(l2c_t) *0.1 # -0.2 ~ 0.2
+                # l2c[0:3,3:4] = l2c[0:3,3:4] + l2c_t * noise
                 l2i.append(get_lidar2img(c2i, l2c).float().numpy())
 
                 ori_c2i = torch.tensor(meta['ori_cam2img'][i]).double()
@@ -267,3 +284,20 @@ class DETR3D(MVXTwoStageDetector):
 #         temp[3, 3] = 1
 #         lidar2cam = temp
 #     return torch.matmul(cam2img, lidar2cam)
+
+import torch.nn.functional as F
+@MODELS.register_module()
+class debugDETR3D(DETR3D):
+    def extract_feat(self, batch_inputs_dict: Dict, batch_input_metas: List[dict]) -> List[Tensor]:
+        feats = super().extract_feat(batch_inputs_dict, batch_input_metas)
+        feats = rescale_feats(feats)
+        return feats
+        
+def rescale_feats(feats):
+    scale = 1.635
+    ret = []
+    for i in range(len(feats)):
+        feat = feats[i]
+        B,N,C,H,W = feat.shape
+        ret.append(F.interpolate(feat.view(-1,C,H,W),scale_factor=scale).unsqueeze(0))
+    return ret

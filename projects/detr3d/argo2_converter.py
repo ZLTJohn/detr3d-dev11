@@ -67,7 +67,8 @@ class argo2_info_gatherer:
             'metainfo': {
                 'categories': categories,
                 'dataset': 'argoverse2',
-                'info_version': '1.1'
+                'info_version': '1.1',
+                'version': 'v1.0-trainval',
             }
         }
         mmengine.dump(infos_all, osp.join(self.out_dir, self.out_name))
