@@ -155,11 +155,11 @@ nusc_test_pipeline = nusc_pipeline_default + [
 nusc_data_prefix = dict(pts='samples/LIDAR_TOP',
                    sweeps='sweeps/LIDAR_TOP',
                    CAM_FRONT='samples/CAM_FRONT',
-                   CAM_FRONT_LEFT='samples/CAM_FRONT_LEFT',
                    CAM_FRONT_RIGHT='samples/CAM_FRONT_RIGHT',
+                   CAM_FRONT_LEFT='samples/CAM_FRONT_LEFT',
                    CAM_BACK='samples/CAM_BACK',
-                   CAM_BACK_RIGHT='samples/CAM_BACK_RIGHT',
-                   CAM_BACK_LEFT='samples/CAM_BACK_LEFT')
+                   CAM_BACK_LEFT='samples/CAM_BACK_LEFT',
+                   CAM_BACK_RIGHT='samples/CAM_BACK_RIGHT',)
 
 nusc_default = dict(
     load_type='frame_based',

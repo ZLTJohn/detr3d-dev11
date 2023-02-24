@@ -53,7 +53,7 @@ waymo_val_interval = 1
 # load_interval_factor = load_interval_type['part']
 input_modality = dict(use_lidar=False, # True if debug_vis
                       use_camera=True)
-work_dir = './work_dirs_joint/1.00argnuway'
+work_dir = './work_dirs_joint/0.33waymo_identity_cam_fusion'
 
 argo2_name_map = {
     'REGULAR_VEHICLE': 'Car',
@@ -137,11 +137,9 @@ model = dict(
                             embed_dims=256,
                             num_heads=8,
                             dropout=0.1),
-                        dict(type='Detr3DCrossAtten',
+                        dict(type='Detr3DCrossAtten_CamEmb',
                              pc_range=point_cloud_range,
-                             num_cams = argo2_num_views,
-                             waymo_with_nuscene = True,
-                             waymo_with_argo2 = True,
+                             num_cams = 1,
                              num_points=1,
                              embed_dims=256)
                     ],
@@ -336,10 +334,10 @@ waymo_val = dict(type=waymo_type,
 
 argnuway_train = dict(
         type='CustomConcatDataset',
-        datasets=[argo2_train, nusc_train, waymo_train])
+        datasets=[nusc_train, waymo_train])
 argnuway_val = dict(
         type='CustomConcatDataset',
-        datasets=[argo2_val, nusc_val, waymo_val])
+        datasets=[nusc_val, waymo_val])
 
 dataloader_default = dict(
     batch_size=1,
@@ -349,11 +347,11 @@ dataloader_default = dict(
 train_dataloader = dict(
     **dataloader_default,
     sampler=dict(type='DefaultSampler', shuffle=True),
-    dataset=argnuway_train)
+    dataset=waymo_train)
 val_dataloader = dict(
     **dataloader_default,
     sampler=dict(type='DefaultSampler', shuffle=False),
-    dataset=argnuway_val)
+    dataset=waymo_val)
 test_dataloader = val_dataloader
 
 val_evaluator = dict(type = 'JointMetric')

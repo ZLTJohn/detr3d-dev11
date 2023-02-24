@@ -29,6 +29,7 @@ img_size_nusc = (800, 450)
 img_size_waymo = (960, 640)
 evaluation_interval = 12 # epochs
 # load_from = 'ckpts/'
+resume = True
 argo2_type = 'Argo2Dataset'
 argo2_data_root = 'data/argo2/'
 argo2_train_pkl = 'argo2_infos_train_2Hz_part.pkl'  
@@ -53,7 +54,7 @@ waymo_val_interval = 1
 # load_interval_factor = load_interval_type['part']
 input_modality = dict(use_lidar=False, # True if debug_vis
                       use_camera=True)
-work_dir = './work_dirs_joint/1.00argnuway'
+work_dir = './work_dirs_joint/0.66nuway_r50_cam_ego_sync'
 
 argo2_name_map = {
     'REGULAR_VEHICLE': 'Car',
@@ -81,8 +82,8 @@ img_norm_cfg = dict(mean=[123.675, 116.28, 103.53],
 debug_vis_cfg = dict(debug_dir='debug/visualization',
                      gt_range=[0, 105],
                      pc_range=point_cloud_range,
-                     vis_count=20,
-                     debug_name='joint_waymo')
+                     vis_count=200,
+                     debug_name='cam_order_sync')
 # model_wrapper_cfg = dict(type = 'CustomMMDDP', static_graph = True)
 model = dict(
     type='DETR3D',
@@ -239,6 +240,8 @@ nusc_pipeline_default = [
     dict(type='ObjectRangeFilter', point_cloud_range=point_cloud_range),
     dict(type='ObjectNameFilter', classes=nusc_class_names),
     dict(type='ProjectLabelToWaymoClass', class_names = nusc_class_names),
+    dict(type='RotateScene_neg90'),
+    dict(type='PermuteImages'),
 ]
 nusc_train_pipeline = nusc_pipeline_default + [
     dict(type='MultiViewWrapper', transforms=[dict(type='PhotoMetricDistortion3D')] + nusc_test_transforms),
@@ -336,10 +339,10 @@ waymo_val = dict(type=waymo_type,
 
 argnuway_train = dict(
         type='CustomConcatDataset',
-        datasets=[argo2_train, nusc_train, waymo_train])
+        datasets=[nusc_train, waymo_train])
 argnuway_val = dict(
         type='CustomConcatDataset',
-        datasets=[argo2_val, nusc_val, waymo_val])
+        datasets=[nusc_val, waymo_val])
 
 dataloader_default = dict(
     batch_size=1,

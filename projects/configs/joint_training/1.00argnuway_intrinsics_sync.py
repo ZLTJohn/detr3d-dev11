@@ -53,7 +53,7 @@ waymo_val_interval = 1
 # load_interval_factor = load_interval_type['part']
 input_modality = dict(use_lidar=False, # True if debug_vis
                       use_camera=True)
-work_dir = './work_dirs_joint/1.00argnuway'
+work_dir = './work_dirs_joint/1.00argnuway_intrinsics_sync'
 
 argo2_name_map = {
     'REGULAR_VEHICLE': 'Car',
@@ -186,6 +186,11 @@ argo2_test_transforms = [
          ratio_range=(1., 1.),
          keep_ratio=False)
 ]
+argo2_intrinsics_sync = [
+    dict(type='Resize3D',
+         scale_factor=1.2189,
+         keep_ratio=True)
+]
 argo2_pipeline_default = [
     dict(type='Argo2LoadMultiViewImageFromFiles', to_float32=True, num_views=argo2_num_views),
     dict(type='filename2img_path'),
@@ -196,10 +201,12 @@ argo2_pipeline_default = [
 ]
 argo2_train_pipeline = argo2_pipeline_default + [
     dict(type='MultiViewWrapper', transforms=[dict(type='PhotoMetricDistortion3D')] + argo2_test_transforms),
+    dict(type='MultiViewWrapper', transforms=argo2_intrinsics_sync),
     dict(type='Pack3DDetInputs', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
 ]
 argo2_test_pipeline = [dict(type='evalann2ann')] + argo2_pipeline_default + [
     dict(type='MultiViewWrapper', transforms=argo2_test_transforms),
+    dict(type='MultiViewWrapper', transforms=argo2_intrinsics_sync),
     dict(type='Pack3DDetInputs', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
 ]
 
@@ -232,6 +239,11 @@ nusc_test_transforms = [
          ratio_range=(1., 1.),
          keep_ratio=False)
 ]
+nusc_intrinsics_sync = [
+    dict(type='Resize3D',
+         scale_factor=1.6436233611442193087008343265793,
+         keep_ratio=True)
+]
 nusc_pipeline_default = [
     dict(type='LoadMultiViewImageFromFiles', to_float32=True, num_views=6),
     dict(type='filename2img_path'),
@@ -242,10 +254,12 @@ nusc_pipeline_default = [
 ]
 nusc_train_pipeline = nusc_pipeline_default + [
     dict(type='MultiViewWrapper', transforms=[dict(type='PhotoMetricDistortion3D')] + nusc_test_transforms),
+    dict(type='MultiViewWrapper', transforms=nusc_intrinsics_sync),
     dict(type='Pack3DDetInputs', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
 ]
 nusc_test_pipeline = [dict(type='evalann2ann')] + nusc_pipeline_default + [
     dict(type='MultiViewWrapper', transforms=nusc_test_transforms),
+    dict(type='MultiViewWrapper', transforms=nusc_intrinsics_sync),
     dict(type='Pack3DDetInputs', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
 ]
 

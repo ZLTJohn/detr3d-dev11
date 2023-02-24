@@ -29,6 +29,7 @@ img_size_nusc = (800, 450)
 img_size_waymo = (960, 640)
 evaluation_interval = 12 # epochs
 # load_from = 'ckpts/'
+resume = True
 argo2_type = 'Argo2Dataset'
 argo2_data_root = 'data/argo2/'
 argo2_train_pkl = 'argo2_infos_train_2Hz_part.pkl'  
@@ -53,7 +54,7 @@ waymo_val_interval = 1
 # load_interval_factor = load_interval_type['part']
 input_modality = dict(use_lidar=False, # True if debug_vis
                       use_camera=True)
-work_dir = './work_dirs_joint/1.00argnuway'
+work_dir = './work_dirs_joint/0.66nuway_r50_intrinsics_sync'
 
 argo2_name_map = {
     'REGULAR_VEHICLE': 'Car',
@@ -82,7 +83,7 @@ debug_vis_cfg = dict(debug_dir='debug/visualization',
                      gt_range=[0, 105],
                      pc_range=point_cloud_range,
                      vis_count=20,
-                     debug_name='joint_waymo')
+                     debug_name='nusc_intrin_sync')
 # model_wrapper_cfg = dict(type = 'CustomMMDDP', static_graph = True)
 model = dict(
     type='DETR3D',
@@ -232,6 +233,11 @@ nusc_test_transforms = [
          ratio_range=(1., 1.),
          keep_ratio=False)
 ]
+nusc_intrinsics_sync = [
+    dict(type='Resize3D',
+         scale_factor=1.6436233611442193087008343265793,
+         keep_ratio=True)
+]
 nusc_pipeline_default = [
     dict(type='LoadMultiViewImageFromFiles', to_float32=True, num_views=6),
     dict(type='filename2img_path'),
@@ -242,10 +248,12 @@ nusc_pipeline_default = [
 ]
 nusc_train_pipeline = nusc_pipeline_default + [
     dict(type='MultiViewWrapper', transforms=[dict(type='PhotoMetricDistortion3D')] + nusc_test_transforms),
+    dict(type='MultiViewWrapper', transforms=nusc_intrinsics_sync),
     dict(type='Pack3DDetInputs', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
 ]
 nusc_test_pipeline = [dict(type='evalann2ann')] + nusc_pipeline_default + [
     dict(type='MultiViewWrapper', transforms=nusc_test_transforms),
+    dict(type='MultiViewWrapper', transforms=nusc_intrinsics_sync),
     dict(type='Pack3DDetInputs', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
 ]
 
@@ -336,10 +344,10 @@ waymo_val = dict(type=waymo_type,
 
 argnuway_train = dict(
         type='CustomConcatDataset',
-        datasets=[argo2_train, nusc_train, waymo_train])
+        datasets=[nusc_train, waymo_train])
 argnuway_val = dict(
         type='CustomConcatDataset',
-        datasets=[argo2_val, nusc_val, waymo_val])
+        datasets=[nusc_val, waymo_val])
 
 dataloader_default = dict(
     batch_size=1,

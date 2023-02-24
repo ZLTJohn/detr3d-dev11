@@ -7,7 +7,7 @@ test_dataloader = dict(dataset=dict(ann_file='debug_val.pkl'))
 # val_evaluator = dict(_delete_=True, type = 'CustomWaymoMetric',is_waymo_gt = False, is_waymo_pred = True)
 train_cfg = dict(val_interval=8)
 load_from = 'ckpts/pgd_kitti_r101_backbone.pth'
-work_dir = './work_dirs/Nusc_kitti_backbone_0.1train'
+work_dir = './work_dirs/Nusc_kitti_backbone_0.1train_halfGPU'
 
 # test_evaluator = val_evaluator
 # resume_from = ''

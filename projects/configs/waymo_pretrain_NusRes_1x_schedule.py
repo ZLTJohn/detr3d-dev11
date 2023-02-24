@@ -58,10 +58,10 @@ data_prefix = dict(
     pts='training/velodyne',
     sweeps='training/velodyne',
     CAM_FRONT='training/image_0',
-    CAM_FRONT_RIGHT='training/image_1',
-    CAM_FRONT_LEFT='training/image_2',
-    CAM_SIDE_RIGHT='training/image_3',
-    CAM_SIDE_LEFT='training/image_4',
+    CAM_FRONT_LEFT='training/image_1',
+    CAM_FRONT_RIGHT='training/image_2',
+    CAM_SIDE_LEFT='training/image_3',
+    CAM_SIDE_RIGHT='training/image_4',
 )
 input_modality = dict(use_lidar=True, use_camera=True)
 train_dataloader = dict(
@@ -73,7 +73,7 @@ train_dataloader = dict(
     dataset=dict(
         type=dataset_type,
         data_root=data_root,
-        ann_file='waymo_infos_train.pkl',
+        ann_file='debug_val.pkl',
         load_interval=5,
         pipeline=train_pipeline,
         load_type='frame_based',
@@ -91,7 +91,7 @@ val_dataloader = dict(batch_size=1,
                       sampler=dict(type='DefaultSampler', shuffle=False),
                       dataset=dict(type=dataset_type,
                                    data_root=data_root,
-                                   ann_file='waymo_infos_val.pkl',
+                                   ann_file='debug_val.pkl',
                                    load_interval=100,
                                    load_type='frame_based',
                                    pipeline=test_pipeline,
@@ -152,6 +152,6 @@ visualizer = dict(type='Det3DLocalVisualizer',
                   vis_backends=vis_backends,
                   name='visualizer')
 
-work_dir = './work_dirs_dev11/NusResEpoch1x'
+work_dir = './work_dirs_dev11/debug'
 # resume_from = '/home/zhenglt/mmdev11/detr3d-dev11/work_dirs_dev11/NusResEpoch1x/epoch_20.pth'
 # resume = True

@@ -35,7 +35,7 @@ argo2_train_pkl = 'argo2_infos_train_2Hz_part.pkl'
 argo2_train_interval = 1    # 2Hz_part means interval = 5x3
 argo2_val_pkl = 'argo2_infos_val_2Hz_part.pkl'
 argo2_val_interval = 1
-
+resume = True
 nusc_type = 'CustomNusc'
 nusc_data_root = 'data/nus_v2/'
 nusc_train_pkl = 'nuscenes_infos_train_part.pkl' 
@@ -53,7 +53,7 @@ waymo_val_interval = 1
 # load_interval_factor = load_interval_type['part']
 input_modality = dict(use_lidar=False, # True if debug_vis
                       use_camera=True)
-work_dir = './work_dirs_joint/1.00argnuway'
+work_dir = './work_dirs_joint/1.00argnuway_egoaxis_sync'
 
 argo2_name_map = {
     'REGULAR_VEHICLE': 'Car',
@@ -239,6 +239,7 @@ nusc_pipeline_default = [
     dict(type='ObjectRangeFilter', point_cloud_range=point_cloud_range),
     dict(type='ObjectNameFilter', classes=nusc_class_names),
     dict(type='ProjectLabelToWaymoClass', class_names = nusc_class_names),
+    dict(type='RotateScene_neg90'),
 ]
 nusc_train_pipeline = nusc_pipeline_default + [
     dict(type='MultiViewWrapper', transforms=[dict(type='PhotoMetricDistortion3D')] + nusc_test_transforms),

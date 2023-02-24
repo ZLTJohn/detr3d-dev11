@@ -1,14 +1,17 @@
 _base_ = [
     'mmdet3d::_base_/default_runtime.py',
-    './base/detr3d_nuway.py'
+    './base/detr3d_nuway_caffe.py'
 ]
 # this means type='DETR3D' will be processed as 'mmdet3d.DETR3D'
 default_scope = 'mmdet3d'
 custom_imports = dict(imports=['projects.detr3d'])
-point_cloud_range = [-35, -75, -2, 75, 75, 4]
+point_cloud_range = [-51, -75, -2, 75, 75, 4]
 nus_class_names = [
     'car', 'truck', 'construction_vehicle', 'bus', 'trailer', 'barrier',
     'motorcycle', 'bicycle', 'pedestrian', 'traffic_cone'
+]
+waymo_class_names = [
+    'Car', 'Pedestrian', 'Cyclist'
 ]
 # nus_class_names = [
 #     'car', 'truck', 'construction_vehicle', 'bus', 'trailer',
@@ -50,7 +53,8 @@ nusc_test_pipeline = [
 
 waymo_test_transforms = [
     dict(type='RandomResize3D',
-         scale=(1600,1066),
+        #  scale=(1600,1066),
+         scale = (1920, 1280),
          ratio_range=(1., 1.),
          keep_ratio=False)
 ]
@@ -64,20 +68,20 @@ waymo_test_pipeline = [
 nusc_data_prefix = dict(pts='samples/LIDAR_TOP',
                    sweeps='sweeps/LIDAR_TOP',
                    CAM_FRONT='samples/CAM_FRONT',
-                   CAM_FRONT_LEFT='samples/CAM_FRONT_LEFT',
                    CAM_FRONT_RIGHT='samples/CAM_FRONT_RIGHT',
+                   CAM_FRONT_LEFT='samples/CAM_FRONT_LEFT',
                    CAM_BACK='samples/CAM_BACK',
-                   CAM_BACK_RIGHT='samples/CAM_BACK_RIGHT',
-                   CAM_BACK_LEFT='samples/CAM_BACK_LEFT')
+                   CAM_BACK_LEFT='samples/CAM_BACK_LEFT',
+                   CAM_BACK_RIGHT='samples/CAM_BACK_RIGHT',)
 
 waymo_data_prefix = dict(
     pts='training/velodyne',
     sweeps='training/velodyne',
     CAM_FRONT='training/image_0',
-    CAM_FRONT_RIGHT='training/image_1',
-    CAM_FRONT_LEFT='training/image_2',
-    CAM_SIDE_RIGHT='training/image_3',
-    CAM_SIDE_LEFT='training/image_4',
+    CAM_FRONT_LEFT='training/image_1',
+    CAM_FRONT_RIGHT='training/image_2',
+    CAM_SIDE_LEFT='training/image_3',
+    CAM_SIDE_RIGHT='training/image_4',
 )
 
 nusc_dataset_type = 'NuScenesDataset'
@@ -97,13 +101,13 @@ nusc_train_dataset = dict(type=nusc_dataset_type,
                           data_prefix=nusc_data_prefix,
                           box_type_3d='LiDAR')
 
-nusc_val_dataset = dict(type=nusc_dataset_type,
+nusc_val_dataset = dict(type='CustomNusc',
                         data_root=nusc_data_root,
-                        ann_file='debug_val.pkl',
+                        ann_file='debug_val_3class.pkl',
                         load_type='frame_based',
                         pipeline=nusc_test_pipeline,
                         modality=input_modality,
-                        metainfo=metainfo,
+                        metainfo=dict(classes = waymo_class_names),
                         test_mode=True,
                         data_prefix=nusc_data_prefix,
                         box_type_3d='LiDAR')
@@ -137,10 +141,10 @@ val_dataloader = dict(batch_size=1,
                     #   dataset=waymo_val_dataset,
                     )
 test_dataloader = val_dataloader
-val_evaluator = dict(type = 'CustomWaymoMetric',is_waymo_gt = False, is_waymo_pred = True)
-# dict(type='NuScenesMetric',
-#                      data_root=data_root,
-#                      ann_file=data_root + 'nuscenes_infos_val.pkl',
+val_evaluator = dict(type = 'CustomWaymoMetric',is_waymo_gt = True, is_waymo_pred = True, metainfo = nus_class_names)
+# val_evaluator = dict(type='CustomNuscMetric',
+#                      data_root=nusc_data_root,
+#                      ann_file=nusc_data_root + 'nuscenes_infos_val.pkl',
 #                      metric='bbox')
 test_evaluator = val_evaluator
 

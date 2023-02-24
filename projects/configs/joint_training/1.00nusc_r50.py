@@ -31,29 +31,29 @@ evaluation_interval = 12 # epochs
 # load_from = 'ckpts/'
 argo2_type = 'Argo2Dataset'
 argo2_data_root = 'data/argo2/'
-argo2_train_pkl = 'argo2_infos_train_2Hz_part.pkl'  
-argo2_train_interval = 1    # 2Hz_part means interval = 5x3
-argo2_val_pkl = 'argo2_infos_val_2Hz_part.pkl'
+argo2_train_pkl = 'argo2_infos_train_2Hz.pkl'  
+argo2_train_interval = 1    # 2Hz means interval = 5
+argo2_val_pkl = 'argo2_infos_val_2Hz.pkl'
 argo2_val_interval = 1
 
 nusc_type = 'CustomNusc'
 nusc_data_root = 'data/nus_v2/'
-nusc_train_pkl = 'nuscenes_infos_train_part.pkl' 
+nusc_train_pkl = 'nuscenes_infos_train.pkl' 
 nusc_train_interval = 1
-nusc_val_pkl = 'nuscenes_infos_val_part.pkl'
+nusc_val_pkl = 'nuscenes_infos_val.pkl'
 nusc_val_interval = 1
 
 waymo_type = 'WaymoDataset'
 waymo_data_root = 'data/waymo_dev1x/kitti_format'
-waymo_train_pkl = 'waymo_infos_train_2Hz_part.pkl'
-waymo_train_interval = 1    # 2Hz_part means interval = 5x3
-waymo_val_pkl = 'waymo_infos_val_2Hz_part.pkl'
+waymo_train_pkl = 'waymo_infos_train_2Hz.pkl'
+waymo_train_interval = 1    # 2Hz means interval = 5
+waymo_val_pkl = 'waymo_infos_val_2Hz.pkl'
 waymo_val_interval = 1
 
-# load_interval_factor = load_interval_type['part']
+# load_interval_factor = load_interval_type['full']
 input_modality = dict(use_lidar=False, # True if debug_vis
                       use_camera=True)
-work_dir = './work_dirs_joint/1.00argnuway'
+work_dir = './work_dirs_joint/1.00nusc_r50'
 
 argo2_name_map = {
     'REGULAR_VEHICLE': 'Car',
@@ -336,10 +336,10 @@ waymo_val = dict(type=waymo_type,
 
 argnuway_train = dict(
         type='CustomConcatDataset',
-        datasets=[argo2_train, nusc_train, waymo_train])
+        datasets=[nusc_train])
 argnuway_val = dict(
         type='CustomConcatDataset',
-        datasets=[argo2_val, nusc_val, waymo_val])
+        datasets=[nusc_val])
 
 dataloader_default = dict(
     batch_size=1,

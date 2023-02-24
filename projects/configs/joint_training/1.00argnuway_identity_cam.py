@@ -27,7 +27,7 @@ argo2_num_views = 7
 img_size_argo2 = (1024,800)
 img_size_nusc = (800, 450)
 img_size_waymo = (960, 640)
-evaluation_interval = 12 # epochs
+evaluation_interval = 24 # epochs
 # load_from = 'ckpts/'
 argo2_type = 'Argo2Dataset'
 argo2_data_root = 'data/argo2/'
@@ -53,7 +53,7 @@ waymo_val_interval = 1
 # load_interval_factor = load_interval_type['part']
 input_modality = dict(use_lidar=False, # True if debug_vis
                       use_camera=True)
-work_dir = './work_dirs_joint/1.00argnuway'
+work_dir = './work_dirs_joint/1.00argnuway_identity_cam_fusion'
 
 argo2_name_map = {
     'REGULAR_VEHICLE': 'Car',
@@ -137,11 +137,9 @@ model = dict(
                             embed_dims=256,
                             num_heads=8,
                             dropout=0.1),
-                        dict(type='Detr3DCrossAtten',
+                        dict(type='Detr3DCrossAtten_CamEmb',
                              pc_range=point_cloud_range,
-                             num_cams = argo2_num_views,
-                             waymo_with_nuscene = True,
-                             waymo_with_argo2 = True,
+                             num_cams = 1,
                              num_points=1,
                              embed_dims=256)
                     ],

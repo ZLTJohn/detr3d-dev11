@@ -52,10 +52,10 @@ data_prefix = dict(
     pts='training/velodyne',
     sweeps='training/velodyne',
     CAM_FRONT='training/image_0',
-    CAM_FRONT_RIGHT='training/image_1',
-    CAM_FRONT_LEFT='training/image_2',
-    CAM_SIDE_RIGHT='training/image_3',
-    CAM_SIDE_LEFT='training/image_4',
+    CAM_FRONT_LEFT='training/image_1',
+    CAM_FRONT_RIGHT='training/image_2',
+    CAM_SIDE_LEFT='training/image_3',
+    CAM_SIDE_RIGHT='training/image_4',
 )
 
 input_modality = dict(use_lidar=True, use_camera=True)

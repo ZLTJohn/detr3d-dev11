@@ -29,31 +29,32 @@ img_size_nusc = (800, 450)
 img_size_waymo = (960, 640)
 evaluation_interval = 12 # epochs
 # load_from = 'ckpts/'
+resume = True
 argo2_type = 'Argo2Dataset'
 argo2_data_root = 'data/argo2/'
 argo2_train_pkl = 'argo2_infos_train_2Hz_part.pkl'  
-argo2_train_interval = 1    # 2Hz_part means interval = 5x3
+argo2_train_interval = 1    # 2Hz_part means interval = 5
 argo2_val_pkl = 'argo2_infos_val_2Hz_part.pkl'
 argo2_val_interval = 1
 
 nusc_type = 'CustomNusc'
 nusc_data_root = 'data/nus_v2/'
-nusc_train_pkl = 'nuscenes_infos_train_part.pkl' 
+nusc_train_pkl = 'nuscenes_infos_train.pkl' 
 nusc_train_interval = 1
 nusc_val_pkl = 'nuscenes_infos_val_part.pkl'
 nusc_val_interval = 1
 
 waymo_type = 'WaymoDataset'
 waymo_data_root = 'data/waymo_dev1x/kitti_format'
-waymo_train_pkl = 'waymo_infos_train_2Hz_part.pkl'
-waymo_train_interval = 1    # 2Hz_part means interval = 5x3
+waymo_train_pkl = 'waymo_infos_train_2Hz.pkl'
+waymo_train_interval = 1    # 2Hz means interval = 5
 waymo_val_pkl = 'waymo_infos_val_2Hz_part.pkl'
 waymo_val_interval = 1
 
 # load_interval_factor = load_interval_type['part']
 input_modality = dict(use_lidar=False, # True if debug_vis
                       use_camera=True)
-work_dir = './work_dirs_joint/1.00argnuway'
+work_dir = './work_dirs_data_size_1.00/0.01n+0.99w'
 
 argo2_name_map = {
     'REGULAR_VEHICLE': 'Car',
@@ -81,7 +82,7 @@ img_norm_cfg = dict(mean=[123.675, 116.28, 103.53],
 debug_vis_cfg = dict(debug_dir='debug/visualization',
                      gt_range=[0, 105],
                      pc_range=point_cloud_range,
-                     vis_count=20,
+                     vis_count=200,
                      debug_name='joint_waymo')
 # model_wrapper_cfg = dict(type = 'CustomMMDDP', static_graph = True)
 model = dict(
@@ -336,10 +337,10 @@ waymo_val = dict(type=waymo_type,
 
 argnuway_train = dict(
         type='CustomConcatDataset',
-        datasets=[argo2_train, nusc_train, waymo_train])
+        datasets=[nusc_train, waymo_train])
 argnuway_val = dict(
         type='CustomConcatDataset',
-        datasets=[argo2_val, nusc_val, waymo_val])
+        datasets=[nusc_val, waymo_val])
 
 dataloader_default = dict(
     batch_size=1,
