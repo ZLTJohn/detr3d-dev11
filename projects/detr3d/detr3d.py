@@ -159,12 +159,6 @@ class DETR3D(MVXTwoStageDetector):
         batch_gt_instances_3d = [
             item.gt_instances_3d for item in batch_data_samples
         ]
-        # print('----DETR3D----')
-        # print(batch_inputs_dict['imgs'].shape)
-        # batch_inputs_dict['imgs'] = batch_inputs_dict['imgs'][:,:5,...]
-        # print(batch_inputs_dict['imgs'].shape)
-        # for meta in batch_input_metas: meta['lidar2img']= meta['lidar2img'][:5]
-        # print(batch_input_metas[0]['img_path'][0])
         if self.vis is not None:
             self.vis.visualize(batch_gt_instances_3d, batch_input_metas,
                                batch_inputs_dict.get('imgs', None))
@@ -174,13 +168,7 @@ class DETR3D(MVXTwoStageDetector):
 
         loss_inputs = [batch_gt_instances_3d, outs]
         losses_pts = self.pts_bbox_head.loss_by_feat(*loss_inputs)
-        # TODO: maybe we can watch gt instances in eval_ann_info when testing
-        # BUG: eval_ann_info not tensor but np.array!
         # torch.cuda.synchronize()
-        # print('finish loss', time()-_)
-        # print('whole iter', time()- self.last_time)
-        # self.last_time = time()
-        # # breakpoint()
         return losses_pts
 
     # original simple_test

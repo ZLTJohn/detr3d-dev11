@@ -72,9 +72,7 @@ class CustomWaymoMetric(BaseMetric):
             result['gt_instances'] = data_sample['gt_instances_3d']
             result['num_views'] = data_sample['num_views']
             self.results.append(self.to_cpu(result))
-            # self.results.extend(_to_cpu(predictions))
-        
-    
+
     def compute_metrics(self, results: list) -> Dict[str, float]:
         """
             Args:
@@ -184,33 +182,7 @@ class JointMetric(CustomWaymoMetric):
                 all_metrics[dataset_type+'/'+k] = float(v)
         return all_metrics
             
-# from mmengine.evaluator.metric import _to_cpu
-# @METRICS.register_module()
-# class EcoJointMetric(JointMetric):
-#     def evaluate(self, size: int) -> dict:
-#         # results = _to_cpu(results)
-#         results = collect_results(self.results, size, self.collect_device)
 
-#         if is_main_process():
-#             breakpoint()
-#             # cast all tensors in results list to cpu
-#             # results = _to_cpu(results)
-#             _metrics = self.compute_metrics(results)  # type: ignore
-#             # Add prefix to metric names
-#             if self.prefix:
-#                 _metrics = {
-#                     '/'.join((self.prefix, k)): v
-#                     for k, v in _metrics.items()
-#                 }
-#             metrics = [_metrics]
-#         else:
-#             metrics = [None]  # type: ignore
-
-#         broadcast_object_list(metrics)
-
-#         # reset the results list
-#         self.results.clear()
-#         return metrics[0]
 # LabelConverter should be used ONLY when we are 
 # evaluating old model trained with 10 classes
 # use it in 'compute_metrics'
