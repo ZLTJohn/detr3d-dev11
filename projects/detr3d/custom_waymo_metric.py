@@ -6,14 +6,14 @@ from typing import Dict, List, Sequence
 import mmengine
 import numpy as np
 import torch
+from torch import Tensor
 from mmdet3d.registry import METRICS
 from mmengine.evaluator import BaseMetric
 from mmengine.logging import MMLogger
 from mmengine.structures import InstanceData
 from waymo_open_dataset import label_pb2
 from waymo_open_dataset.protos import metrics_pb2
-
-
+from mmengine.structures import BaseDataElement
 # refer to work_dirs_dev11/NusResEpoch2x/20230106_232132/20230106_232132.log
 # more checks are needed for this module
 @METRICS.register_module()
@@ -48,6 +48,19 @@ class CustomWaymoMetric(BaseMetric):
             'Cyclist': label_pb2.Label.TYPE_CYCLIST,
         }
 
+    def to_cpu(self, data):
+        '''mmengine/evaluator/metric.py: def _to_cpu'''
+        if isinstance(data, (Tensor, BaseDataElement)) or hasattr(data,'tensor'):
+            return data.to('cpu')
+        elif isinstance(data, list):
+            return [self.to_cpu(d) for d in data]
+        elif isinstance(data, tuple):
+            return tuple(self.to_cpu(d) for d in data)
+        elif isinstance(data, dict):
+            return {k: self.to_cpu(v) for k, v in data.items()}
+        else:
+            return data
+
     def process(self, data_batch: dict, data_samples: Sequence[dict]) -> None:
         # TODO: add submission infos to support test set
         # BUG: same config output differ, check if it's about precision loss during cuda to cpu
@@ -58,9 +71,10 @@ class CustomWaymoMetric(BaseMetric):
             result['sample_idx'] = data_sample['sample_idx']
             result['gt_instances'] = data_sample['gt_instances_3d']
             result['num_views'] = data_sample['num_views']
-            self.results.append(result)
+            self.results.append(self.to_cpu(result))
+            # self.results.extend(_to_cpu(predictions))
         
-
+    
     def compute_metrics(self, results: list) -> Dict[str, float]:
         """
             Args:
@@ -84,6 +98,7 @@ class CustomWaymoMetric(BaseMetric):
         objs = metrics_pb2.Objects()
         print(f'Converting {ins_key} to waymo format...')
         prog_bar = mmengine.ProgressBar(len(results))
+        # TODO: make it multiprocess
         for result in results:
             bboxes = result[ins_key]['bboxes_3d'].tensor
             labels = result[ins_key]['labels_3d']
@@ -127,13 +142,10 @@ class Waymo_Evaluator:
     def __init__(self) -> None:
         pass
     def waymo_evaluate(self, gt_file: str, pred_file: str) -> dict:
-        import shutil
         from time import time
         from mmdet3d.evaluation.metrics.waymo_let_metric import \
             compute_waymo_let_metric
         _ = time()
-        shutil.copy(pred_file, 'results/result_{}.bin'.format(_))
-        print('save output bin to results/result_{}.bin'.format(_))
         ap_dict = compute_waymo_let_metric(gt_file, pred_file)
         print('time usage of compute_let_metric: {} s'.format(time() - _))
         return ap_dict
@@ -150,6 +162,10 @@ class JointMetric(CustomWaymoMetric):
         }
 
     def compute_metrics(self, results: list) -> Dict[str, float]:
+        from time import time
+        _ = time()
+        mmengine.dump(results,'results/results_{}.pkl'.format(_))
+        print('save result pkl to results/results_{}.pkl'.format(_))
         results_split = {
             'waymo':[],
             'nuscenes':[],
@@ -165,10 +181,36 @@ class JointMetric(CustomWaymoMetric):
                 continue
             metrics = super().compute_metrics(results_split[dataset_type])
             for k, v in metrics.items():
-                all_metrics[dataset_type+'/'+k] = v
+                all_metrics[dataset_type+'/'+k] = float(v)
         return all_metrics
             
+# from mmengine.evaluator.metric import _to_cpu
+# @METRICS.register_module()
+# class EcoJointMetric(JointMetric):
+#     def evaluate(self, size: int) -> dict:
+#         # results = _to_cpu(results)
+#         results = collect_results(self.results, size, self.collect_device)
 
+#         if is_main_process():
+#             breakpoint()
+#             # cast all tensors in results list to cpu
+#             # results = _to_cpu(results)
+#             _metrics = self.compute_metrics(results)  # type: ignore
+#             # Add prefix to metric names
+#             if self.prefix:
+#                 _metrics = {
+#                     '/'.join((self.prefix, k)): v
+#                     for k, v in _metrics.items()
+#                 }
+#             metrics = [_metrics]
+#         else:
+#             metrics = [None]  # type: ignore
+
+#         broadcast_object_list(metrics)
+
+#         # reset the results list
+#         self.results.clear()
+#         return metrics[0]
 # LabelConverter should be used ONLY when we are 
 # evaluating old model trained with 10 classes
 # use it in 'compute_metrics'

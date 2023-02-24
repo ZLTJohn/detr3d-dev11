@@ -18,12 +18,74 @@ class filename2img_path:
 class evalann2ann:
 
     def __call__(self, results):
-        breakpoint()
         results['ann_info'] = results['eval_ann_info']
         return results
 
     def __repr__(self):
         return 'maybe we need to fix this bug'
+
+@TRANSFORMS.register_module()
+class PermuteImages:
+    def __init__(self,new2old = [0,2,1,4,5,3]):
+        self.new2old = new2old
+    def __call__(self, results):
+        keys = ['images', 'filename', 'cam2img', 'lidar2cam', 'ori_cam2img', 'img', 'img_path']
+        for key in keys:
+            if type(results[key]) == dict:
+                ks,vs = [], []
+                for k in results[key]:
+                    ks.append(k)
+                    vs.append(results[key][k])
+                results[key] = {}
+                for i in range(len(self.new2old)):
+                    results[key][ks[self.new2old[i]]] = vs[self.new2old[i]]
+            else:
+                new_list = []
+                for i in range(len(self.new2old)):
+                    new_list.append(results[key][self.new2old[i]])
+                results[key] = new_list
+        return results
+
+@TRANSFORMS.register_module()
+class RotateScene_neg90:
+    '''rotate whole scene by 90 degree, revese clockwise'''
+    def __init__(self):
+        # A = -90 
+        # Rotation matrix = [
+        #  cosA, -sinA 0
+        #  sinA, cosA 0
+        #  0     0    1
+        # ]
+        A = -np.pi/2
+        self.R = np.array(
+            [[0,1,0,0],
+            [-1,0,0,0],
+            [0,0,1,0],
+            [0,0,0,1]]
+        )
+        self.invR = np.array([
+            [0,-1,0,0],
+            [1,0,0,0],
+            [0,0,1,0],
+            [0,0,0,1]
+        ])
+        # -np.pi/2
+
+    def __call__(self, results):
+        # breakpoint()
+        box = results['gt_bboxes_3d'].tensor
+        box[:,[0,1]] = box[:,[1,0]]
+        box[:,1] = -box[:,1]   
+        box[:,-1] = box[:,-1] - np.pi/2
+        results['gt_bboxes_3d'].limit_yaw
+        l2c = np.array(results['lidar2cam'])
+        l2c = l2c @ self.invR
+        results['lidar2cam'] = l2c
+        results['ego_old2new'] = self.R
+        # labels: x, y switch, old_yaw+new_yaw = pi/4 *2
+        # ego2cam:
+        return results
+    # TODO: parse ego_old2new to img_meta so that visualizer can deal with it
 
 @TRANSFORMS.register_module()
 class ProjectLabelToWaymoClass(object):

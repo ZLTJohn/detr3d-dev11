@@ -156,19 +156,26 @@ class DETR3D(MVXTwoStageDetector):
         # _ = time()
         batch_input_metas = [item.metainfo for item in batch_data_samples]
         batch_input_metas = self.add_lidar2img(batch_input_metas)
-        img_feats = self.extract_feat(batch_inputs_dict, batch_input_metas)
-        outs = self.pts_bbox_head(img_feats, batch_input_metas, **kwargs)
-
         batch_gt_instances_3d = [
             item.gt_instances_3d for item in batch_data_samples
         ]
+        # print('----DETR3D----')
+        # print(batch_inputs_dict['imgs'].shape)
+        # batch_inputs_dict['imgs'] = batch_inputs_dict['imgs'][:,:5,...]
+        # print(batch_inputs_dict['imgs'].shape)
+        # for meta in batch_input_metas: meta['lidar2img']= meta['lidar2img'][:5]
+        # print(batch_input_metas[0]['img_path'][0])
+        if self.vis is not None:
+            self.vis.visualize(batch_gt_instances_3d, batch_input_metas,
+                               batch_inputs_dict.get('imgs', None))
+
+        img_feats = self.extract_feat(batch_inputs_dict, batch_input_metas)
+        outs = self.pts_bbox_head(img_feats, batch_input_metas, **kwargs)
+
         loss_inputs = [batch_gt_instances_3d, outs]
         losses_pts = self.pts_bbox_head.loss_by_feat(*loss_inputs)
         # TODO: maybe we can watch gt instances in eval_ann_info when testing
         # BUG: eval_ann_info not tensor but np.array!
-        if self.vis is not None:
-            self.vis.visualize(batch_gt_instances_3d, batch_input_metas,
-                               batch_inputs_dict.get('imgs', None))
         # torch.cuda.synchronize()
         # print('finish loss', time()-_)
         # print('whole iter', time()- self.last_time)
@@ -218,11 +225,14 @@ class DETR3D(MVXTwoStageDetector):
         detsamples = self.add_pred_to_datasample(batch_data_samples,
                                                  results_list_3d)
         if self.vis is not None:
-            # ann_infos = [item.eval_ann_info for item in batch_data_samples]
-            # self.vis.visualize(ann_infos, batch_input_metas,
-            #                 batch_inputs_dict.get('imgs', None))
-            self.vis.visualize(results_list_3d, batch_input_metas,
+            batch_gt_instances_3d = [
+                item.gt_instances_3d for item in batch_data_samples]
+            if len(batch_gt_instances_3d[0])!=0:
+                self.vis.visualize(batch_gt_instances_3d, batch_input_metas,name_suffix='_gt')
+                self.vis.visualize(results_list_3d, batch_input_metas,
                                batch_inputs_dict.get('imgs', None))
+            else:
+                print('skipping one frame since no gt left')
         return detsamples
 
     # may need speed-up

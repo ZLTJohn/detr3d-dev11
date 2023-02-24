@@ -1,0 +1,38 @@
+torch.Size([1, 5, 3, 1280, 1920])
+torch.Size([1, 5, 3, 1280, 1920])
+data/waymo_dev1x/kitti_format/training/image_0/1027171.jpg
+forward time 0.387134313583374
+        scale loss 2.288818359375e-05
+        backward 2.6947858333587646
+        step 0.028967618942260742
+        zero grad 0.002096891403198242
+update param time 2.7261786460876465
+torch.Size([1, 6, 3, 1280, 1920])
+torch.Size([1, 5, 3, 1280, 1920])
+data/nus_v2/samples/CAM_FRONT/n008-2018-08-30-15-31-50-0400__CAM_FRONT__1535657696512404.jpg
+forward time 0.35665178298950195
+        scale loss 2.3365020751953125e-05
+        backward 2.6626999378204346
+        step 0.02917313575744629
+        zero grad 0.0019807815551757812
+update param time 2.6942367553710938
+torch.Size([1, 5, 3, 1280, 1920])
+torch.Size([1, 5, 3, 1280, 1920])
+
+
+data/nus_v2/samples/CAM_FRONT/n008-2018-08-30-10-33-52-0400__CAM_FRONT__1535639694612404.jpg
+forward time 0.13180088996887207
+        scale loss 2.3603439331054688e-05
+        backward 0.2452101707458496
+        step 0.028577566146850586
+        zero grad 0.0022089481353759766
+update param time 0.2763040065765381
+torch.Size([1, 5, 3, 640, 960])
+torch.Size([1, 5, 3, 640, 960])
+data/waymo_dev1x/kitti_format/training/image_0/1086005.jpg
+forward time 0.12555575370788574
+        scale loss 2.3126602172851562e-05
+        backward 0.23685121536254883
+        step 0.028308391571044922
+        zero grad 0.002245187759399414
+update param time 0.26773667335510254

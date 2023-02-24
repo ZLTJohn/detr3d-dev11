@@ -339,8 +339,14 @@ class Detr3DCrossAtten(BaseModule):
         output = torch.nan_to_num(output)
         mask = torch.nan_to_num(mask)
         if self.waymo_with_nuscene == True or self.waymo_with_argo2==True:
-            num_view = mask.shape[3]
-            attention_weights = attention_weights[:, :, :, :num_view, ...]
+            # enlarge mask and output
+            num_img = mask.shape[3]
+            mask_ext = torch.zeros_like(mask[:,:,:,:self.num_cams-num_img, ...])
+            mask = torch.cat((mask, mask_ext),dim=3)
+            output_ext = torch.zeros_like(output[:,:,:,:self.num_cams-num_img, ...])
+            output = torch.cat((output,output_ext),dim=3)
+            # attention_weights = attention_weights[:, :, :, :num_view, ...]
+
         attention_weights = attention_weights.sigmoid() * mask
         output = output * attention_weights
         output = output.sum(-1).sum(-1).sum(-1)
@@ -449,3 +455,135 @@ def feature_sampling(mlvl_feats,
     sampled_feats = \
         sampled_feats.view(B, C, num_query, num_cam, 1, len(mlvl_feats))
     return ref_pt_3d, sampled_feats, mask
+
+
+@MODELS.register_module()
+class Detr3DCrossAtten_CamEmb(Detr3DCrossAtten):
+    def __init__(self,
+                 num_cams = 1,
+                 **kwargs):
+        super().__init__(num_cams=1, **kwargs)
+        # self.extrinsic_encoder = nn.Sequential(
+        #     nn.Linear(12, self.embed_dims),
+        #     nn.LayerNorm(self.embed_dims),
+        #     nn.ReLU(inplace=True),
+        #     nn.Linear(self.embed_dims, self.embed_dims),
+        #     nn.LayerNorm(self.embed_dims),
+        #     nn.ReLU(inplace=True),
+        # )
+        # self.softmax = nn.Softmax(dim=3)
+        # for p in self.extrinsic_encoder.parameters():
+        #     if (p.ndim > 1): 
+        #         xavier_init(p, distribution='uniform', bias=0.)
+
+    def forward(self,
+                query,
+                key,
+                value,
+                residual=None,
+                query_pos=None,
+                reference_points=None,
+                **kwargs):
+        if key is None:
+            key = query
+        if value is None:
+            value = key
+        if residual is None:
+            inp_residual = query
+        if query_pos is not None:
+            query = query + query_pos
+        query = query.permute(1, 0, 2)
+        bs, num_query, _ = query.size()
+        
+        ego2cam = query.new_tensor([meta['lidar2cam'] for meta in kwargs['img_metas']]) # or maybe we can do cam2ego?
+        num_view = ego2cam.shape[1]
+        # ego2cam = ego2cam[...,:3,:].view(bs,num_view,12)
+        # cam_emb = self.extrinsic_encoder(ego2cam).view(bs, 1, num_view,-1)
+        # query = query.view(bs,num_query,1,-1)
+        #  = query * cam_emb      # (num_query,num_view,256)
+        # 256,4
+        attention_weights = self.attention_weights(query).view(
+            bs, 1, num_query, 1, 1, self.num_levels)
+        attention_weights = F.softmax(attention_weights,dim=-1)
+        attention_weights = attention_weights.repeat(1,1,1,num_view,1,1)
+        
+        reference_points_3d, output, mask = feature_sampling(
+            value, reference_points, self.pc_range, kwargs['img_metas'])
+        output = torch.nan_to_num(output)
+        mask = torch.nan_to_num(mask)
+
+        # attention_weights = attention_weights.sigmoid() * mask
+        attention_weights = attention_weights * mask
+        output = output * attention_weights
+        output = output.sum(-1).sum(-1).sum(-1)
+        output = output.permute(2, 0, 1)
+        # (num_query, bs, embed_dims)
+        output = self.output_proj(output)
+        pos_feat = self.position_encoder(
+            inverse_sigmoid(reference_points_3d)).permute(1, 0, 2)
+        return self.dropout(output) + inp_residual + pos_feat
+
+
+
+# @MODELS.register_module()
+# class Detr3DCrossAtten_CamEmb(Detr3DCrossAtten):
+#     def __init__(self,
+#                  num_cams = 1,
+#                  **kwargs):
+#         super().__init__(num_cams=1, **kwargs)
+#         self.extrinsic_encoder = nn.Sequential(
+#             nn.Linear(12, self.embed_dims),
+#             nn.LayerNorm(self.embed_dims),
+#             nn.ReLU(inplace=True),
+#             nn.Linear(self.embed_dims, self.embed_dims),
+#             nn.LayerNorm(self.embed_dims),
+#             nn.ReLU(inplace=True),
+#         )
+#         self.softmax = nn.Softmax(dim=3)
+#         for p in self.extrinsic_encoder.parameters():
+#             if (p.ndim > 1): 
+#                 xavier_init(p, distribution='uniform', bias=0.)
+
+#     def forward(self,
+#                 query,
+#                 key,
+#                 value,
+#                 residual=None,
+#                 query_pos=None,
+#                 reference_points=None,
+#                 **kwargs):
+#         if key is None:
+#             key = query
+#         if value is None:
+#             value = key
+#         if residual is None:
+#             inp_residual = query
+#         if query_pos is not None:
+#             query = query + query_pos
+#         query = query.permute(1, 0, 2)
+#         bs, num_query, _ = query.size()
+        
+#         ego2cam = query.new_tensor([meta['lidar2cam'] for meta in kwargs['img_metas']]) # or maybe we can do cam2ego?
+#         num_view = ego2cam.shape[1]
+#         ego2cam = ego2cam[...,:3,:].view(bs,num_view,12)
+#         cam_emb = self.extrinsic_encoder(ego2cam).view(bs, 1, num_view,-1)
+#         query = query.view(bs,num_query,1,-1)
+#         embbed_query = query * cam_emb
+#         attention_weights = self.attention_weights(embbed_query).view(
+#             bs, 1, num_query, num_view, self.num_points, self.num_levels)
+#         attention_weights = self.softmax(attention_weights)
+        
+#         reference_points_3d, output, mask = feature_sampling(
+#             value, reference_points, self.pc_range, kwargs['img_metas'])
+#         output = torch.nan_to_num(output)
+#         mask = torch.nan_to_num(mask)
+
+#         attention_weights = attention_weights.sigmoid() * mask
+#         output = output * attention_weights
+#         output = output.sum(-1).sum(-1).sum(-1)
+#         output = output.permute(2, 0, 1)
+#         # (num_query, bs, embed_dims)
+#         output = self.output_proj(output)
+#         pos_feat = self.position_encoder(
+#             inverse_sigmoid(reference_points_3d)).permute(1, 0, 2)
+#         return self.dropout(output) + inp_residual + pos_feat

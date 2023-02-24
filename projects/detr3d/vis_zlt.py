@@ -32,7 +32,9 @@ class visualizer_zlt():
                  vis_count=300,
                  debug_name=None,
                  draw_box=True,
-                 gt_or_pred='gt'):
+                 egoaxis_sync=False,
+                 vis_tensor=True,
+                 draw_score_type=True):
         self.debug_dir = debug_dir
         self.gt_range = gt_range
         self.vis_count = vis_count
@@ -40,11 +42,18 @@ class visualizer_zlt():
         self.identity_range = [0, 0, 0, 1, 1, 1]
         self.draw_box = draw_box
         self.PIL_transform = Trans.ToPILImage()
-        self.gt_or_pred = gt_or_pred
+        self.vis_tensor = vis_tensor
         if debug_name is None:
             self.debug_name = str(time.time())
         else:
             self.debug_name = debug_name
+        self.egoaxis_sync = egoaxis_sync
+        self.draw_score_type = draw_score_type
+        self.R = np.array([
+            [0,1,0],
+            [-1,0,0],
+            [0,0,1]]
+        )
 
     def infer_dataset_name(self, img_paths):
         if 'way' in img_paths:
@@ -82,7 +91,7 @@ class visualizer_zlt():
     def filter_range(self, instances_3d):
         centers = instances_3d.bboxes_3d.gravity_center
         dist = torch.sqrt(
-            torch.square(centers[..., 0]) + torch.square(centers[..., 1]))
+            torch.square(centers[..., 0]) + torch.square(centers[..., 1]) + torch.square(centers[..., 2]))
         mask = ((self.gt_range[0] < dist) & (dist < self.gt_range[1]))
         instances_3d = instances_3d[mask == 1]
         return instances_3d
@@ -122,7 +131,6 @@ class visualizer_zlt():
         return Image.fromarray(ndarr)
 
     def toInstance(self, instances_3d, device=torch.device('cuda', 0)):
-        breakpoint()
         gt_instances_3d = InstanceData()
         bboxes = instances_3d['gt_bboxes_3d'].to(device)
         labels = torch.tensor(instances_3d['gt_labels_3d']).to(device)
@@ -131,7 +139,7 @@ class visualizer_zlt():
 
         return self.add_score(gt_instances_3d)
 
-    def visualize(self, instances_3d=None, img_meta=None, img=None):
+    def visualize(self, instances_3d=None, img_meta=None, img=None, name_suffix=''):
         # support only one sample once
         if type(instances_3d) == list:
             instances_3d = instances_3d[0]
@@ -144,7 +152,7 @@ class visualizer_zlt():
             img_paths = [img_paths]
         self.infer_dataset_name(img_paths[0])
         dirname = self.get_dir(str(img_meta['sample_idx']))
-        filename = self.get_name()
+        filename = self.get_name()+name_suffix
 
         if instances_3d is not None:
             instances_3d = self.filter_range(instances_3d)
@@ -164,7 +172,7 @@ class visualizer_zlt():
             self.save_bbox2img(img_from_file, instances_3d, metacopy, dirname,
                                filename)
 
-        if img is not None:
+        if img is not None and self.vis_tensor:
             if img.dim() == 5:
                 img = img[0]
             N, C, H, W = img.size()
@@ -192,16 +200,14 @@ class visualizer_zlt():
 
         ref_pt = gt_bboxes_3d.gravity_center.view(1, -1, 3)  # 1 num_gt, 3
         # the ref_pt is not normalized, give identity pc_range to feat_sample
-        pt_cam, mask = feature_sampling(None,
-                                        ref_pt,
-                                        self.identity_range, [img_meta],
-                                        no_sampling=True)
-        pt_cam = pt_cam.squeeze()
-        mask = mask.squeeze()  # [cam, gt]
+        pt_cam, mask = feature_sampling(None,ref_pt,self.identity_range, [img_meta],no_sampling=True)
+        pt_cam = pt_cam.squeeze(0)
+        mask = mask.squeeze(0).squeeze(-1)  # [cam, gt]
         pt_cam[..., 0] *= w
         pt_cam[..., 1] *= h
         print(ref_pt.size())
-        breakpoint()
+        print('frame:', img_meta['sample_idx'])
+        # print('ego2global:', img_meta['ego2global'])
         draws = [ImageDraw.Draw(i) for i in imgs]
 
         if self.draw_box:
@@ -241,9 +247,10 @@ class visualizer_zlt():
                          360,
                          width=4,
                          fill=color)
-                score_type = str(round(float(instances_3d.scores_3d[j]),3))+\
-                            'Cls'+str(int(instances_3d.labels_3d[j]))
-                draw.text((x + r, y + r), score_type, color, font=font)
+                if self.draw_score_type:
+                    score_type = str(round(float(instances_3d.scores_3d[j]),3))+\
+                                'Cls'+str(int(instances_3d.labels_3d[j]))
+                    draw.text((x + r, y + r), score_type, color, font=font)
 
     def draw_img_bbox(self, draw, corners_cam, mask):
         num_query = corners_cam.shape[0] // 8
@@ -289,7 +296,11 @@ class visualizer_zlt():
         mask = ((pts[:, 0] > pc_range[0]) & (pts[:, 0] < pc_range[3]) &
                 (pts[:, 1] > pc_range[1]) & (pts[:, 1] < pc_range[4]) &
                 (pts[:, 2] > pc_range[2]) & (pts[:, 2] < pc_range[5]))
-        pts = pts[mask]
+        pts = pts[mask,:3]
+        if self.egoaxis_sync and self.ds_name == 'nuscenes':
+            pts = np.array(pts)
+            pts = (self.R @ pts.T).T
+            pts = torch.from_numpy(pts)
         res = 0.05
         x_max = 1 + int((pc_range[3] - pc_range[0]) / res)
         y_max = 1 + int((pc_range[4] - pc_range[1]) / res)
@@ -325,9 +336,10 @@ class visualizer_zlt():
             if i % 10 == 0:
                 color = self.get_color()
                 color_front = self.get_color()
-            score_type = str(int(instances_3d.labels_3d[i]))
-            # + str(round(float(instances_3d.scores_3d[i]),2))[1:]
-            draw.text((x + r - 3, y + r - 3), score_type, color, font=font)
+            if self.draw_score_type:
+                score_type = str(int(instances_3d.labels_3d[i]))
+                # + str(round(float(instances_3d.scores_3d[i]),2))[1:]
+                draw.text((x + r - 3, y + r - 3), score_type, color, font=font)
             draw.arc([(x - r, y - r), (x + r, y + r)],
                      0,
                      360,

@@ -9,6 +9,5 @@ while True:
     s = input()
     for t in target:
         l = s.find(t) + len(t)
-        out.append(s[l:l+6])
-    print("{} ({}/{}/{})".format(*out))
-
+        out.append(round(float(s[l:l+6])*100,1))
+    print("{}% ({}%/{}%/{}%)".format(*out))
