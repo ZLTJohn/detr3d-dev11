@@ -32,10 +32,11 @@ evaluation_interval = 12 # epochs
 resume = True
 argo2_type = 'Argo2Dataset'
 argo2_data_root = 'data/argo2/'
-argo2_train_pkl = 'argo2_infos_train_2Hz_part.pkl'  
+argo2_train_pkl = 'argo2_infos_train_2Hz.pkl'  
 argo2_train_interval = 1    # 2Hz_part means interval = 5
 argo2_val_pkl = 'argo2_infos_val_2Hz_part.pkl'
 argo2_val_interval = 1
+argo2_subset_ratio = 0.99
 
 nusc_type = 'CustomNusc'
 nusc_data_root = 'data/nus_v2/'
@@ -43,7 +44,8 @@ nusc_train_pkl = 'nuscenes_infos_train.pkl'
 nusc_train_interval = 1
 nusc_val_pkl = 'nuscenes_infos_val_part.pkl'
 nusc_val_interval = 1
-nusc_subset_ratio = 0.99
+
+# final train size may be pkl_size/train_interval * subset_ratio
 
 waymo_type = 'WaymoDataset'
 waymo_data_root = 'data/waymo_dev1x/kitti_format'
@@ -56,7 +58,7 @@ waymo_subset_ratio = 0.01
 # load_interval_factor = load_interval_type['part']
 input_modality = dict(use_lidar=False, # True if debug_vis
                       use_camera=True)
-work_dir = './work_dirs_data_size_1.00/0.01w+0.99n'
+work_dir = './work_dirs_data_size_1.00/0.01w+0.99a'
 
 argo2_name_map = {
     'REGULAR_VEHICLE': 'Car',
@@ -339,11 +341,11 @@ waymo_val = dict(type=waymo_type,
 
 argnuway_train = dict(
         type='CustomConcatDataset',
-        datasets=[nusc_train, waymo_train],
-        dataset_ratios = [nusc_subset_ratio, waymo_subset_ratio])
+        datasets=[argo2_train, waymo_train],
+        dataset_ratios = [argo2_subset_ratio, waymo_subset_ratio])
 argnuway_val = dict(
         type='CustomConcatDataset',
-        datasets=[nusc_val, waymo_val])
+        datasets=[argo2_val,waymo_val])
 
 dataloader_default = dict(
     batch_size=1,

@@ -43,7 +43,8 @@ nusc_train_pkl = 'nuscenes_infos_train.pkl'
 nusc_train_interval = 1
 nusc_val_pkl = 'nuscenes_infos_val_part.pkl'
 nusc_val_interval = 1
-nusc_subset_ratio = 0.99
+nusc_subset_ratio = 0.33
+# final train size may be pkl_size/train_interval * subset_ratio
 
 waymo_type = 'WaymoDataset'
 waymo_data_root = 'data/waymo_dev1x/kitti_format'
@@ -51,12 +52,12 @@ waymo_train_pkl = 'waymo_infos_train_2Hz.pkl'
 waymo_train_interval = 1    # 2Hz means interval = 5
 waymo_val_pkl = 'waymo_infos_val_2Hz_part.pkl'
 waymo_val_interval = 1
-waymo_subset_ratio = 0.01
+waymo_subset_ratio = 0.67
 
 # load_interval_factor = load_interval_type['part']
 input_modality = dict(use_lidar=False, # True if debug_vis
                       use_camera=True)
-work_dir = './work_dirs_data_size_1.00/0.01w+0.99n'
+work_dir = './work_dirs_data_size_1.00/0.67w+0.33n'
 
 argo2_name_map = {
     'REGULAR_VEHICLE': 'Car',
