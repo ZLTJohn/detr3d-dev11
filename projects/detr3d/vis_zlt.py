@@ -17,12 +17,9 @@ from mmdet3d.structures import LiDARInstance3DBoxes
 from mmengine.structures import InstanceData
 from PIL import Image, ImageDraw, ImageFont
 
-from .detr3d_transformer import feature_sampling
+from .detr3d_transformer import DefaultFeatSampler, GeoAwareFeatSampler
 
 # lidar_path, img_path
-
-
-# TODO: add colors to object front
 class visualizer_zlt():
 
     def __init__(self,
@@ -34,7 +31,9 @@ class visualizer_zlt():
                  draw_box=True,
                  egoaxis_sync=False,
                  vis_tensor=True,
-                 draw_score_type=True):
+                 draw_score_type=True,
+                 ROIsampling=False):
+        # TODO: add label details to BEV objects
         self.debug_dir = debug_dir
         self.gt_range = gt_range
         self.vis_count = vis_count
@@ -43,6 +42,7 @@ class visualizer_zlt():
         self.draw_box = draw_box
         self.PIL_transform = Trans.ToPILImage()
         self.vis_tensor = vis_tensor
+        self.ROIsampling = ROIsampling
         if debug_name is None:
             self.debug_name = str(time.time())
         else:
@@ -200,7 +200,17 @@ class visualizer_zlt():
 
         ref_pt = gt_bboxes_3d.gravity_center.view(1, -1, 3)  # 1 num_gt, 3
         # the ref_pt is not normalized, give identity pc_range to feat_sample
-        pt_cam, mask = feature_sampling(None,ref_pt,self.identity_range, [img_meta],no_sampling=True)
+        if self.ROIsampling:
+            scale = 8
+            tsr=[]
+            for i in range(4):
+                tsr.append(torch.ones((1,num_cam, 256, h//scale, w//scale)))
+                scale *= 2
+            sampler = GeoAwareFeatSampler(debug=True)
+            pt_cam, mask = sampler.forward(tsr,ref_pt,self.identity_range, [img_meta])
+        else:
+            sampler = DefaultFeatSampler()
+            pt_cam, mask = sampler.project_ego2cam(ref_pt,self.identity_range, [img_meta])
         pt_cam = pt_cam.squeeze(0)
         mask = mask.squeeze(0).squeeze(-1)  # [cam, gt]
         pt_cam[..., 0] *= w
@@ -210,13 +220,12 @@ class visualizer_zlt():
         # print('ego2global:', img_meta['ego2global'])
         draws = [ImageDraw.Draw(i) for i in imgs]
 
-        if self.draw_box:
+        if self.ROIsampling==False and self.draw_box:
+            sampler = DefaultFeatSampler()
             corners_pt = gt_bboxes_3d.corners.view(1, -1, 3)  # 1 num_gt*8 3
-            corners_cam, mask_corner = feature_sampling(None,
-                                                        corners_pt,
-                                                        self.identity_range,
-                                                        [img_meta],
-                                                        no_sampling=True)
+            corners_cam, mask_corner = sampler.project_ego2cam(corners_pt,
+                                                               self.identity_range,
+                                                               [img_meta])
             corners_cam = corners_cam.squeeze()  # num_cam num_gt*8 2
             corners_cam[..., 0] *= w
             corners_cam[..., 1] *= h
@@ -247,7 +256,7 @@ class visualizer_zlt():
                          360,
                          width=4,
                          fill=color)
-                if self.draw_score_type:
+                if not self.ROIsampling and self.draw_score_type:
                     score_type = str(round(float(instances_3d.scores_3d[j]),3))+\
                                 'Cls'+str(int(instances_3d.labels_3d[j]))
                     draw.text((x + r, y + r), score_type, color, font=font)

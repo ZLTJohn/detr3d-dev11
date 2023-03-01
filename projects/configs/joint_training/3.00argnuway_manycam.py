@@ -53,7 +53,7 @@ waymo_val_interval = 3
 # load_interval_factor = load_interval_type['full']
 input_modality = dict(use_lidar=False, # True if debug_vis
                       use_camera=True)
-work_dir = './work_dirs_joint/3.00argnuway_identity_cam_fusion_recheck'
+work_dir = './work_dirs_joint/3.00argnuway_ManyCam'
 
 argo2_name_map = {
     'REGULAR_VEHICLE': 'Car',
@@ -137,9 +137,9 @@ model = dict(
                             embed_dims=256,
                             num_heads=8,
                             dropout=0.1),
-                        dict(type='Detr3DCrossAtten_CamEmb',
+                        dict(type='Detr3DCrossAtten_ManyCam',
                              pc_range=point_cloud_range,
-                             num_cams = 1,
+                             num_cams = 18,
                              num_points=1,
                              embed_dims=256)
                     ],

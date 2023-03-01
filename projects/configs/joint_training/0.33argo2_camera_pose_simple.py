@@ -27,33 +27,33 @@ argo2_num_views = 7
 img_size_argo2 = (1024,800)
 img_size_nusc = (800, 450)
 img_size_waymo = (960, 640)
-evaluation_interval = 4 # epochs
+evaluation_interval = 12 # epochs
 # load_from = 'ckpts/'
 argo2_type = 'Argo2Dataset'
-argo2_data_root = '/localdata_ssd/argo2_dev1x'
-argo2_train_pkl = 'argo2_infos_train_2Hz.pkl'  
-argo2_train_interval = 1    # 2Hz means interval = 5
-argo2_val_pkl = 'argo2_infos_val_2Hz.pkl'
-argo2_val_interval = 3
+argo2_data_root = 'data/argo2/'
+argo2_train_pkl = 'argo2_infos_train_2Hz_part.pkl'  
+argo2_train_interval = 1    # 2Hz_part means interval = 5x3
+argo2_val_pkl = 'argo2_infos_val_2Hz_part.pkl'
+argo2_val_interval = 1
 
 nusc_type = 'CustomNusc'
-nusc_data_root = '/localdata_ssd/nusc_dev1x'
-nusc_train_pkl = 'nuscenes_infos_train.pkl' 
+nusc_data_root = 'data/nus_v2/'
+nusc_train_pkl = 'nuscenes_infos_train_part.pkl' 
 nusc_train_interval = 1
-nusc_val_pkl = 'nuscenes_infos_val.pkl'
-nusc_val_interval = 3
+nusc_val_pkl = 'nuscenes_infos_val_part.pkl'
+nusc_val_interval = 1
 
 waymo_type = 'WaymoDataset'
-waymo_data_root = '/localdata_ssd/waymo_dev1x/'
-waymo_train_pkl = 'waymo_infos_train_2Hz.pkl'
-waymo_train_interval = 1    # 2Hz means interval = 5
-waymo_val_pkl = 'waymo_infos_val_2Hz.pkl'
-waymo_val_interval = 3
-# resume = True
-# load_interval_factor = load_interval_type['full']
+waymo_data_root = 'data/waymo_dev1x/kitti_format'
+waymo_train_pkl = 'waymo_infos_train_2Hz_part.pkl'
+waymo_train_interval = 1    # 2Hz_part means interval = 5x3
+waymo_val_pkl = 'waymo_infos_val_2Hz_part.pkl'
+waymo_val_interval = 1
+
+# load_interval_factor = load_interval_type['part']
 input_modality = dict(use_lidar=False, # True if debug_vis
                       use_camera=True)
-work_dir = './work_dirs_joint/3.00argnuway_identity_cam_fusion_recheck'
+work_dir = './work_dirs_joint/0.33argo2_r50_camera_pose_simple'
 
 argo2_name_map = {
     'REGULAR_VEHICLE': 'Car',
@@ -137,11 +137,14 @@ model = dict(
                             embed_dims=256,
                             num_heads=8,
                             dropout=0.1),
-                        dict(type='Detr3DCrossAtten_CamEmb',
+                        dict(type='Detr3DCrossAtten',
                              pc_range=point_cloud_range,
-                             num_cams = 1,
+                             num_cams = argo2_num_views,
+                             waymo_with_nuscene = True,
+                             waymo_with_argo2 = True,
                              num_points=1,
-                             embed_dims=256)
+                             embed_dims=256,
+                             feature_sampler=dict(type='GeoAwareFeatSampler'))
                     ],
                     feedforward_channels=512,
                     ffn_dropout=0.1,
@@ -347,11 +350,11 @@ dataloader_default = dict(
 train_dataloader = dict(
     **dataloader_default,
     sampler=dict(type='DefaultSampler', shuffle=True),
-    dataset=argnuway_train)
+    dataset=argo2_train)
 val_dataloader = dict(
     **dataloader_default,
     sampler=dict(type='DefaultSampler', shuffle=False),
-    dataset=argnuway_val)
+    dataset=argo2_val)
 test_dataloader = val_dataloader
 
 val_evaluator = dict(type = 'JointMetric')

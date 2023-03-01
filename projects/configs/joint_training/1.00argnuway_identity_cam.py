@@ -27,7 +27,7 @@ argo2_num_views = 7
 img_size_argo2 = (1024,800)
 img_size_nusc = (800, 450)
 img_size_waymo = (960, 640)
-evaluation_interval = 24 # epochs
+evaluation_interval = 12 # epochs
 # load_from = 'ckpts/'
 argo2_type = 'Argo2Dataset'
 argo2_data_root = 'data/argo2/'
@@ -47,13 +47,13 @@ waymo_type = 'WaymoDataset'
 waymo_data_root = 'data/waymo_dev1x/kitti_format'
 waymo_train_pkl = 'waymo_infos_train_2Hz_part.pkl'
 waymo_train_interval = 1    # 2Hz_part means interval = 5x3
-waymo_val_pkl = 'waymo_infos_val_2Hz_part.pkl'
+waymo_val_pkl = 'waymo_infos_val_2Hz.pkl'
 waymo_val_interval = 1
 
 # load_interval_factor = load_interval_type['part']
 input_modality = dict(use_lidar=False, # True if debug_vis
                       use_camera=True)
-work_dir = './work_dirs_joint/1.00argnuway_identity_cam_fusion'
+work_dir = './work_dirs_joint/1.00argnuway_identity_cam_fusion_recheck'
 
 argo2_name_map = {
     'REGULAR_VEHICLE': 'Car',

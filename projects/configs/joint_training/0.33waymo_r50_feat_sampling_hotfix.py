@@ -27,53 +27,33 @@ argo2_num_views = 7
 img_size_argo2 = (1024,800)
 img_size_nusc = (800, 450)
 img_size_waymo = (960, 640)
-evaluation_interval = 4 # epochs
+evaluation_interval = 12 # epochs
 # load_from = 'ckpts/'
 argo2_type = 'Argo2Dataset'
-argo2_data_root = '/localdata_ssd/argo2_dev1x'
-argo2_train_pkl = 'argo2_infos_train_2Hz.pkl'  
-argo2_train_interval = 1    # 2Hz means interval = 5
-argo2_val_pkl = 'argo2_infos_val_2Hz.pkl'
-argo2_val_interval = 3
+argo2_data_root = 'data/argo2/'
+argo2_train_pkl = 'argo2_infos_train_2Hz_part.pkl'  
+argo2_train_interval = 1    # 2Hz_part means interval = 5x3
+argo2_val_pkl = 'argo2_infos_val_2Hz_part.pkl'
+argo2_val_interval = 1
 
 nusc_type = 'CustomNusc'
-nusc_data_root = '/localdata_ssd/nusc_dev1x'
-nusc_train_pkl = 'nuscenes_infos_train.pkl' 
+nusc_data_root = 'data/nus_v2/'
+nusc_train_pkl = 'nuscenes_infos_train_part.pkl' 
 nusc_train_interval = 1
-nusc_val_pkl = 'nuscenes_infos_val.pkl'
-nusc_val_interval = 3
+nusc_val_pkl = 'nuscenes_infos_val_part.pkl'
+nusc_val_interval = 1
 
 waymo_type = 'WaymoDataset'
-waymo_data_root = '/localdata_ssd/waymo_dev1x/'
-waymo_train_pkl = 'waymo_infos_train_2Hz.pkl'
-waymo_train_interval = 1    # 2Hz means interval = 5
-waymo_val_pkl = 'waymo_infos_val_2Hz.pkl'
-waymo_val_interval = 3
-# resume = True
-# load_interval_factor = load_interval_type['full']
+waymo_data_root = 'data/waymo_dev1x/kitti_format'
+waymo_train_pkl = 'waymo_infos_train_2Hz_part.pkl'
+waymo_train_interval = 1    # 2Hz_part means interval = 5x3
+waymo_val_pkl = 'waymo_infos_val_2Hz_part.pkl'
+waymo_val_interval = 1
+
+# load_interval_factor = load_interval_type['part']
 input_modality = dict(use_lidar=False, # True if debug_vis
                       use_camera=True)
-work_dir = './work_dirs_joint/3.00argnuway_identity_cam_fusion_recheck'
-
-argo2_name_map = {
-    'REGULAR_VEHICLE': 'Car',
-    'LARGE_VEHICLE': 'Car',
-    'BUS': 'Car',
-    'BOX_TRUCK': 'Car',
-    'TRUCK': 'Car',
-    'MOTORCYCLE': 'Car',
-    'VEHICULAR_TRAILER': 'Car',
-    'TRUCK_CAB': 'Car',
-    'SCHOOL_BUS': 'Car',
-    'ARTICULATED_BUS': 'Car',
-    'MESSAGE_BOARD_TRAILER': 'Car',
-    'TRAFFIC_LIGHT_TRAILER': 'Car',
-    'PEDESTRIAN': 'Pedestrian',
-    'WHEELED_RIDER': 'Pedestrian',
-    'OFFICIAL_SIGNALER': 'Pedestrian',
-    'BICYCLE': 'Cyclist',
-    'BICYCLIST': 'Cyclist'
-}
+work_dir = './work_dirs_joint/0.33waymo_r50_feat_sampling_hotfix'
 # model
 img_norm_cfg = dict(mean=[123.675, 116.28, 103.53], 
                     std=[58.395, 57.12, 57.375],
@@ -83,7 +63,6 @@ debug_vis_cfg = dict(debug_dir='debug/visualization',
                      pc_range=point_cloud_range,
                      vis_count=20,
                      debug_name='joint_waymo')
-# model_wrapper_cfg = dict(type = 'CustomMMDDP', static_graph = True)
 model = dict(
     type='DETR3D',
     use_grid_mask=True,
@@ -98,7 +77,6 @@ model = dict(
                       frozen_stages=1,
                       norm_cfg=dict(type='BN2d', requires_grad=False),
                       norm_eval=True,
-                    #   with_cp=True,
                       style='pytorch',
                       init_cfg=dict(type='Pretrained', checkpoint='torchvision://resnet50'),
                       dcn=dict(type='DCNv2',
@@ -124,7 +102,7 @@ model = dict(
         as_two_stage=False,
         transformer=dict(
             type='Detr3DTransformer',
-            num_cams = argo2_num_views,
+            num_cams = 6,
             decoder=dict(
                 type='Detr3DTransformerDecoder',
                 num_layers=6,
@@ -137,11 +115,13 @@ model = dict(
                             embed_dims=256,
                             num_heads=8,
                             dropout=0.1),
-                        dict(type='Detr3DCrossAtten_CamEmb',
+                        dict(type='Detr3DCrossAtten',
                              pc_range=point_cloud_range,
-                             num_cams = 1,
+                             num_cams = 6,
+                             waymo_with_nuscene = True,
                              num_points=1,
-                             embed_dims=256)
+                             embed_dims=256,
+                             sampling_method = 'waymo_hotfix')
                     ],
                     feedforward_channels=512,
                     ffn_dropout=0.1,
@@ -178,107 +158,6 @@ model = dict(
             pc_range=point_cloud_range))))
 
 #dataset
-argo2_test_transforms = [
-    dict(type='RandomResize3D',
-         scale=img_size_argo2,
-         ratio_range=(1., 1.),
-         keep_ratio=False)
-]
-argo2_pipeline_default = [
-    dict(type='Argo2LoadMultiViewImageFromFiles', to_float32=True, num_views=argo2_num_views),
-    dict(type='filename2img_path'),
-    dict(type='LoadAnnotations3D', with_bbox_3d=True, with_label_3d=True, with_attr_label=False),
-    dict(type='ObjectRangeFilter', point_cloud_range=point_cloud_range),
-    dict(type='ObjectNameFilter', classes=argo2_class_names), # Deprecated now
-    dict(type='ProjectLabelToWaymoClass', class_names = argo2_class_names, name_map = argo2_name_map),
-]
-argo2_train_pipeline = argo2_pipeline_default + [
-    dict(type='MultiViewWrapper', transforms=[dict(type='PhotoMetricDistortion3D')] + argo2_test_transforms),
-    dict(type='Pack3DDetInputs', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
-]
-argo2_test_pipeline = [dict(type='evalann2ann')] + argo2_pipeline_default + [
-    dict(type='MultiViewWrapper', transforms=argo2_test_transforms),
-    dict(type='Pack3DDetInputs', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
-]
-
-argo2_data_prefix = dict()
-
-argo2_default = dict(
-    load_type='frame_based',
-    modality=input_modality,
-    metainfo=dict(classes=argo2_class_names),
-    data_prefix=argo2_data_prefix,
-    box_type_3d='LiDAR')
-argo2_train = dict(type=argo2_type,
-                data_root=argo2_data_root,
-                ann_file=argo2_train_pkl,
-                pipeline=argo2_train_pipeline,
-                load_interval = argo2_train_interval,
-                test_mode=False,
-                **argo2_default)
-argo2_val = dict(type=argo2_type,
-                data_root=argo2_data_root,
-                ann_file=argo2_val_pkl,
-                pipeline=argo2_test_pipeline,
-                load_interval = argo2_val_interval,
-                test_mode=True,
-                **argo2_default)
-
-nusc_test_transforms = [
-    dict(type='RandomResize3D',
-         scale=img_size_nusc,
-         ratio_range=(1., 1.),
-         keep_ratio=False)
-]
-nusc_pipeline_default = [
-    dict(type='LoadMultiViewImageFromFiles', to_float32=True, num_views=6),
-    dict(type='filename2img_path'),
-    dict(type='LoadAnnotations3D', with_bbox_3d=True, with_label_3d=True, with_attr_label=False),
-    dict(type='ObjectRangeFilter', point_cloud_range=point_cloud_range),
-    dict(type='ObjectNameFilter', classes=nusc_class_names),
-    dict(type='ProjectLabelToWaymoClass', class_names = nusc_class_names),
-]
-nusc_train_pipeline = nusc_pipeline_default + [
-    dict(type='MultiViewWrapper', transforms=[dict(type='PhotoMetricDistortion3D')] + nusc_test_transforms),
-    dict(type='Pack3DDetInputs', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
-]
-nusc_test_pipeline = [dict(type='evalann2ann')] + nusc_pipeline_default + [
-    dict(type='MultiViewWrapper', transforms=nusc_test_transforms),
-    dict(type='Pack3DDetInputs', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
-]
-
-nusc_data_prefix = dict(pts='samples/LIDAR_TOP',
-                   sweeps='sweeps/LIDAR_TOP',
-                   CAM_FRONT='samples/CAM_FRONT',
-                   CAM_FRONT_RIGHT='samples/CAM_FRONT_RIGHT',
-                   CAM_FRONT_LEFT='samples/CAM_FRONT_LEFT',
-                   CAM_BACK='samples/CAM_BACK',
-                   CAM_BACK_LEFT='samples/CAM_BACK_LEFT',
-                   CAM_BACK_RIGHT='samples/CAM_BACK_RIGHT',)
-
-nusc_default = dict(
-    load_type='frame_based',
-    modality=input_modality,
-    metainfo=dict(classes=nusc_class_names),
-    data_prefix=nusc_data_prefix,
-    with_velocity=False,
-    use_valid_flag=True,
-    box_type_3d='LiDAR')
-nusc_train = dict(type=nusc_type,
-                 data_root=nusc_data_root,
-                 ann_file=nusc_train_pkl,
-                 pipeline=nusc_train_pipeline,
-                 load_interval = nusc_train_interval,
-                test_mode=False,
-                 **nusc_default)
-nusc_val = dict(type=nusc_type,
-                data_root=nusc_data_root,
-                ann_file=nusc_val_pkl,
-                pipeline=nusc_test_pipeline,
-                load_interval = nusc_val_interval,
-                test_mode=True,
-                **nusc_default)
-
 waymo_test_transforms = [
     dict(type='RandomResize3D',
          scale=img_size_waymo,
@@ -332,13 +211,6 @@ waymo_val = dict(type=waymo_type,
                  test_mode=True,
                  **waymo_default)
 
-argnuway_train = dict(
-        type='CustomConcatDataset',
-        datasets=[argo2_train, nusc_train, waymo_train])
-argnuway_val = dict(
-        type='CustomConcatDataset',
-        datasets=[argo2_val, nusc_val, waymo_val])
-
 dataloader_default = dict(
     batch_size=1,
     num_workers=4,
@@ -347,17 +219,16 @@ dataloader_default = dict(
 train_dataloader = dict(
     **dataloader_default,
     sampler=dict(type='DefaultSampler', shuffle=True),
-    dataset=argnuway_train)
+    dataset=waymo_train)
 val_dataloader = dict(
     **dataloader_default,
     sampler=dict(type='DefaultSampler', shuffle=False),
-    dataset=argnuway_val)
+    dataset=waymo_val)
 test_dataloader = val_dataloader
 
-val_evaluator = dict(type = 'JointMetric')
+val_evaluator = dict(type = 'CustomWaymoMetric')
 test_evaluator = val_evaluator
 
-# learning rate
 file_client_args = dict(backend='disk')
 optim_wrapper = dict(
     type='OptimWrapper',
