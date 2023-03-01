@@ -4,8 +4,8 @@ from .custom_waymo_metric import CustomWaymoMetric, CustomNuscMetric, JointMetri
 from .detr3d import DETR3D, debugDETR3D
 from .detr3d_head import DETR3DHead
 from .detr3d_transformer import (Detr3DCrossAtten, Detr3DTransformer,
-                                 Detr3DTransformerDecoder, Detr3DCrossAtten_CamEmb,
-                                 DefaultFeatSampler, GeoAwareFeatSampler)
+                                 Detr3DTransformerDecoder, Detr3DCrossAtten_CamEmb)
+from .detr3d_featsampler import DefaultFeatSampler, GeoAwareFeatSampler
 from .hungarian_assigner_3d import HungarianAssigner3D
 from .match_cost import BBox3DL1Cost
 from .nms_free_coder import NMSFreeCoder
