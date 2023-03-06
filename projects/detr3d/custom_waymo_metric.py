@@ -158,7 +158,21 @@ class JointMetric(CustomWaymoMetric):
             6: 'nuscenes',
             7: 'argo2'
         }
-
+        self.target = [
+            'OBJECT_TYPE_ALL_NS_LEVEL_2/LET-mAP',
+            'OBJECT_TYPE_TYPE_VEHICLE_LEVEL_2/LET-mAP',
+            'OBJECT_TYPE_TYPE_PEDESTRIAN_LEVEL_2/LET-mAP',
+            'OBJECT_TYPE_TYPE_CYCLIST_LEVEL_2/LET-mAP'
+        ]
+    def format_result(self, metrics):
+        mAPs = []
+        for t in self.target:
+            for key in metrics:
+                if t in key:
+                    mAPs.append(round(metrics[key]*100,1))
+                    break
+        return "{}% ({}%/{}%/{}%)".format(*mAPs)
+        
     def compute_metrics(self, results: list) -> Dict[str, float]:
         from time import time
         _ = time()
@@ -174,12 +188,17 @@ class JointMetric(CustomWaymoMetric):
             results_split[ds_name].append(item)
 
         all_metrics = {}
+        ds_names = ''
+        keymetrics = []
         for dataset_type in results_split:
             if len(results_split[dataset_type]) == 0:
                 continue
             metrics = super().compute_metrics(results_split[dataset_type])
+            ds_names+=dataset_type[:3]+' '
+            keymetrics.append(self.format_result(metrics))
             for k, v in metrics.items():
                 all_metrics[dataset_type+'/'+k] = float(v)
+        all_metrics.update({ds_names:keymetrics})
         return all_metrics
             
 

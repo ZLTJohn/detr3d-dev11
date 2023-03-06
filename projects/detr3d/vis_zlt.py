@@ -32,7 +32,7 @@ class visualizer_zlt():
                  egoaxis_sync=False,
                  vis_tensor=True,
                  draw_score_type=True,
-                 ROIsampling=False):
+                 ROIsampling=None):
         # TODO: add label details to BEV objects
         self.debug_dir = debug_dir
         self.gt_range = gt_range
@@ -141,6 +141,7 @@ class visualizer_zlt():
 
     def visualize(self, instances_3d=None, img_meta=None, img=None, name_suffix=''):
         # support only one sample once
+        breakpoint()
         if type(instances_3d) == list:
             instances_3d = instances_3d[0]
         if type(instances_3d) == dict:
@@ -165,6 +166,7 @@ class visualizer_zlt():
             img_from_file = self.load_imgs(img_paths)
             metacopy = copy(img_meta)
             metacopy['lidar2img'] = metacopy['ori_lidar2img']
+            metacopy['cam2img'] = metacopy['ori_cam2img']
             # (height, width) , not verified on waymo and nus
             w = max([i.size[0] for i in img_from_file])
             h = max([i.size[1] for i in img_from_file])
@@ -200,13 +202,15 @@ class visualizer_zlt():
 
         ref_pt = gt_bboxes_3d.gravity_center.view(1, -1, 3)  # 1 num_gt, 3
         # the ref_pt is not normalized, give identity pc_range to feat_sample
-        if self.ROIsampling:
+        if self.ROIsampling is not None:
             scale = 8
             tsr=[]
             for i in range(4):
                 tsr.append(torch.ones((1,num_cam, 256, h//scale, w//scale)))
                 scale *= 2
-            sampler = GeoAwareFeatSampler(debug=True)
+                base_dist = self.ROIsampling.get('base_dist',51.2)
+                base_fxfy = self.ROIsampling.get('base_fxfy',-1)
+            sampler = GeoAwareFeatSampler(base_dist=base_dist,base_fxfy=base_fxfy,debug=True)
             pt_cam, mask = sampler.forward(tsr,ref_pt,self.identity_range, [img_meta])
         else:
             sampler = DefaultFeatSampler()
@@ -220,7 +224,7 @@ class visualizer_zlt():
         # print('ego2global:', img_meta['ego2global'])
         draws = [ImageDraw.Draw(i) for i in imgs]
 
-        if self.ROIsampling==False and self.draw_box:
+        if self.ROIsampling is None and self.draw_box:
             sampler = DefaultFeatSampler()
             corners_pt = gt_bboxes_3d.corners.view(1, -1, 3)  # 1 num_gt*8 3
             corners_cam, mask_corner = sampler.project_ego2cam(corners_pt,
@@ -256,7 +260,7 @@ class visualizer_zlt():
                          360,
                          width=4,
                          fill=color)
-                if not self.ROIsampling and self.draw_score_type:
+                if self.ROIsampling is None and self.draw_score_type:
                     score_type = str(round(float(instances_3d.scores_3d[j]),3))+\
                                 'Cls'+str(int(instances_3d.labels_3d[j]))
                     draw.text((x + r, y + r), score_type, color, font=font)

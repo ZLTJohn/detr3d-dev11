@@ -5,7 +5,7 @@ from .detr3d import DETR3D, debugDETR3D
 from .detr3d_head import DETR3DHead
 from .detr3d_transformer import (Detr3DCrossAtten, Detr3DTransformer,
                                  Detr3DTransformerDecoder, Detr3DCrossAtten_CamEmb)
-from .detr3d_featsampler import DefaultFeatSampler, GeoAwareFeatSampler
+from .detr3d_featsampler import DefaultFeatSampler, GeoAwareFeatSampler, CameraAwareFeatSampler
 from .hungarian_assigner_3d import HungarianAssigner3D
 from .match_cost import BBox3DL1Cost
 from .nms_free_coder import NMSFreeCoder
@@ -19,5 +19,6 @@ __all__ = [
     'CustomWaymoMetric', 'Argo2Metric', 'Argo2LoadMultiViewImageFromFiles',
     'CustomMMDDP', 'CustomConcatDataset', 'CustomNuscMetric', 'CustomNusc',
     'debugDETR3D', 'evalann2ann', 'JointMetric', 'RotateScene_neg90', 
-    'Detr3DCrossAtten_CamEmb', 'DefaultFeatSampler', 'GeoAwareFeatSampler'
+    'Detr3DCrossAtten_CamEmb', 'DefaultFeatSampler', 'GeoAwareFeatSampler',
+    'CameraAwareFeatSampler'
 ]

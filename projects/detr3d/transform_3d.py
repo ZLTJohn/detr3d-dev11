@@ -4,6 +4,9 @@ import copy
 import mmengine
 import mmcv
 import numpy as np
+import os.path as osp
+import random
+import time
 @TRANSFORMS.register_module()
 class filename2img_path:
 
@@ -86,6 +89,57 @@ class RotateScene_neg90:
         # ego2cam:
         return results
     # TODO: parse ego_old2new to img_meta so that visualizer can deal with it
+    # parse it to eval ann info
+
+@TRANSFORMS.register_module()
+class EgoTranslate:
+    def __init__(self, Tr_range, eval = True, frame_wise = False):
+        self.Tr_range = Tr_range
+        self.frame_wise = frame_wise
+        self.eval= eval
+        random.seed(time.time())
+
+    def get_scene_token(self, results):
+        '''
+            Examples:
+                'data/argo2/val/02678d04-cc9f-3148-9f95-1ba66347dff9/sensors/cameras/ring_front_center/315969904449927217.jpg'
+                'data/nus_v2/samples/CAM_FRONT/n015-2018-08-02-17-16-37+0800__CAM_FRONT__1533201470412460.jpg'
+                'data/waymo_dev1x/kitti_format/training/image_0/1000000.jpg'
+        '''
+        if self.frame_wise == False:
+            path = results['img_path'][0]
+            imgfile = osp.basename(path)
+            if  'waymo' in path:
+                # ABBBCCC for split, scene, frame
+                scene_token = imgfile[:4]
+            elif 'nus' in path:
+                scene_token = imgfile[:29]# n015-2018-08-02-17-16-37+0800
+            else:
+                scene_token = results['log_id']
+        else:
+            scene_token = results['timestamp']
+        return scene_token
+
+    def __call__(self, results):
+        # support nusc only
+        if self.eval:
+            scene_token = self.get_scene_token(results)
+            random.seed(scene_token)
+        [X0,Y0,Z0,X1,Y1,Z1] = self.Tr_range
+        x = random.random() * (X1 - X0) + X0#-0.15789807484957175
+        y = random.random() * (Y1 - Y0) + Y0
+        z = random.random() * (Z1 - Z0) + Z0
+        t = np.array([x,y,z])
+        new2old = np.identity(4)
+        new2old[:3,3] = t
+        # ego +=t
+        box = results['gt_bboxes_3d'].tensor
+        box[:,:3] -= t
+        l2c = np.array(results['lidar2cam'])
+        l2c = l2c @ new2old
+        results['lidar2cam'] = l2c
+        results['ego_trans'] = t
+        return results
 
 @TRANSFORMS.register_module()
 class ProjectLabelToWaymoClass(object):

@@ -11,29 +11,18 @@ class DefaultFeatSampler:
     def __init__(self):
         self.creator = 'zltjohn'
     
-    def CamCenters2Objects(self, ref_pt, pc_range, img_metas):
+    def denormalize(self, ref_pt, pc_range):
         '''
-        Calculate distance between ref_pt and different camera centers
+        Denormalize reference points according to perception_range
         Args:
-            ref_pt: Normalized reference points
-            pc_range: perception range
-            img_metas: metainfos that contains 'lidar2img'
-        Return:
-            cam2refpt: in shape [B,N,Q]
+            ref_pt: ref points
+            pc_range: List of number: [X0,Y0,Z0,X1,Y1,Z1]
         '''
-        lidar2cam = [meta['lidar2cam'] for meta in img_metas]
-        lidar2cam = np.asarray(lidar2cam)
-        cam2lidar = np.linalg.inv(lidar2cam)
-        CamCenters = ref_pt.new_tensor(cam2lidar[:,:,:3,-1]).unsqueeze(2)   # B N 1 3
-
         [X0,Y0,Z0,X1,Y1,Z1] = pc_range
         ref_pt[..., 0:1] = ref_pt[..., 0:1] * (X1 - X0) + X0
         ref_pt[..., 1:2] = ref_pt[..., 1:2] * (Y1 - Y0) + Y0
         ref_pt[..., 2:3] = ref_pt[..., 2:3] * (Z1 - Z0) + Z0
-        ref_pt = ref_pt.unsqueeze(1)    # B 1 Q 3
-
-        cam2refpt = ref_pt - CamCenters
-        return torch.norm(cam2refpt,dim=-1)
+        return ref_pt
 
     def project_ego2cam(self,
                         ref_pt: Tensor,
@@ -61,11 +50,7 @@ class DefaultFeatSampler:
         N = lidar2img.size(1)
         eps = 1e-5
 
-        [X0,Y0,Z0,X1,Y1,Z1] = pc_range
-        ref_pt[..., 0:1] = ref_pt[..., 0:1] * (X1 - X0) + X0
-        ref_pt[..., 1:2] = ref_pt[..., 1:2] * (Y1 - Y0) + Y0
-        ref_pt[..., 2:3] = ref_pt[..., 2:3] * (Z1 - Z0) + Z0
-
+        ref_pt = self.denormalize(ref_pt, pc_range)
         # (B num_q 3) -> (B num_q 4) -> (B 1 num_q 4) -> (B num_cam num_q 4 1)
         ref_pt = torch.cat((ref_pt, torch.ones_like(ref_pt[..., :1])), -1)
         ref_pt = ref_pt.view(B, 1, Q, 4)
@@ -152,12 +137,50 @@ class GeoAwareFeatSampler(DefaultFeatSampler):
             self.pooling = torch.max
         self.debug = debug
 
+    def CamCenters2Objects(self, ref_pt, pc_range, img_metas, refpt_dist=False):
+        '''
+        Calculate distance between ref_pt and different camera centers
+        Args:
+            ref_pt: Normalized reference points
+            pc_range: perception range
+            img_metas: metainfos that contains 'lidar2img'
+            refpt_dist: whether to return distance from ego to refpt,
+                default to False
+        Return:
+            cam2refpt: in shape [B,N,Q]
+            ego2refpt (optional): in shape [B,N,Q]
+        '''
+        lidar2cam = [meta['lidar2cam'] for meta in img_metas]
+        lidar2cam = np.asarray(lidar2cam)
+        cam2lidar = np.linalg.inv(lidar2cam)
+        CamCenters = ref_pt.new_tensor(cam2lidar[:,:,:3,-1]).unsqueeze(2)   # B N 1 3
+        N = CamCenters.shape[1]
+        ref_pt = self.denormalize(ref_pt, pc_range)
+        ref_pt = ref_pt.unsqueeze(1).repeat(1,N,1,1)    # B 1 Q 3
+        cam2refpt = torch.norm(ref_pt - CamCenters,dim=-1)
+        if refpt_dist == True:
+            ego2refpt = torch.norm(ref_pt,dim=-1)
+            return cam2refpt, ego2refpt
+        else:
+            return cam2refpt
+    
     def get_fxfy(self, img_metas):
         # [B, N, 3,3]
         cam2img = [meta['cam2img'] for meta in img_metas]
         cam2img = np.asarray(cam2img)
         fxfy = (cam2img[:,:,0:1,0] + cam2img[:,:,1:2,1])/2
         return fxfy
+
+    def get_scale_factor(self, ref_pt, pc_range, img_metas):
+        cam2refpt = self.CamCenters2Objects(ref_pt, pc_range, img_metas)
+        scale_factor = torch.ones_like(cam2refpt)# B N Q
+        if self.base_dist != -1:
+            scale_factor *= self.base_dist / cam2refpt
+        if self.base_fxfy != -1:
+            # fxfy focals in [B N,1]
+            cams_fxfy = ref_pt.new_tensor(self.get_fxfy(img_metas))
+            scale_factor *= cams_fxfy / self.base_fxfy
+        return scale_factor
 
     def forward(self,
                 mlvl_feats,
@@ -170,20 +193,12 @@ class GeoAwareFeatSampler(DefaultFeatSampler):
         K = len(offset_2d)
         B, N, Q, _ = mask.shape
 
-        ref_pt_dist = self.CamCenters2Objects(ref_pt, pc_range, img_metas)
-        scale_factor = torch.ones_like(ref_pt_dist)# B N Q
-        if self.base_dist != -1:
-            scale_factor *= self.base_dist / ref_pt_dist
-        if self.base_fxfy != -1:
-            # fxfy focals in [B N,1]
-            cams_fxfy = ref_pt.new_tensor(self.get_fxfy(img_metas))
-            scale_factor *= cams_fxfy / self.base_fxfy
-
+        scale_factor = self.get_scale_factor(ref_pt, pc_range, img_metas)
         scale_factor = scale_factor.view(B,N,Q,1,1)
         offset_2d = ref_pt.new_tensor(offset_2d).view(1,1,1,K,2)
         offset_pt_cam = offset_2d * scale_factor
         pt_cam = pt_cam.view(B,N,Q,1,2)
-        
+
         vis0,vis1=[],[]
         sampled_feats = []
         for lvl, feat in enumerate(mlvl_feats):
@@ -221,11 +236,17 @@ class GeoAwareFeatSampler(DefaultFeatSampler):
         mask = torch.nan_to_num(mask)
         return sampled_feats, mask
 
-def feature_sampling_RoiAlign(mlvl_feats,
-                     ref_pt,
-                     pc_range,
-                     img_metas):
-    pass
+@MODELS.register_module()
+class CameraAwareFeatSampler(GeoAwareFeatSampler):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.virtual_cam_dist = 0
+
+    def get_scale_factor(self, ref_pt, pc_range, img_metas):
+        cam2refpt, ego2refpt  = self.CamCenters2Objects(ref_pt, pc_range, 
+                                                        img_metas, refpt_dist=True)
+        scale_factor = (ego2refpt - self.virtual_cam_dist) / cam2refpt
+        return scale_factor
 
 
 # def CamCenters2Objects(ref_pt, img_metas):

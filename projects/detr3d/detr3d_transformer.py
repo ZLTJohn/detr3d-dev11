@@ -339,14 +339,14 @@ class Detr3DCrossAtten(BaseModule):
         reference_points_3d = reference_points.clone()
         output, mask = self.feature_sampler.forward(
             value, reference_points, self.pc_range, kwargs['img_metas'])
-        output = torch.nan_to_num(output)
         mask = torch.nan_to_num(mask)
+        output = torch.nan_to_num(output)
         if self.waymo_with_nuscene == True or self.waymo_with_argo2==True:
             # enlarge mask and output
             num_img = mask.shape[3]
             mask_ext = torch.zeros_like(mask[:,:,:,:self.num_cams-num_img, ...])
-            mask = torch.cat((mask, mask_ext),dim=3)
             output_ext = torch.zeros_like(output[:,:,:,:self.num_cams-num_img, ...])
+            mask = torch.cat((mask, mask_ext),dim=3)
             output = torch.cat((output,output_ext),dim=3)
             # attention_weights = attention_weights[:, :, :, :num_view, ...]
 

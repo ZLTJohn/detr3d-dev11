@@ -53,7 +53,7 @@ waymo_val_interval = 1
 # load_interval_factor = load_interval_type['part']
 input_modality = dict(use_lidar=False, # True if debug_vis
                       use_camera=True)
-work_dir = './work_dirs_joint/1.00argnuway_intrinsics_sync'
+work_dir = './work_dirs_joint/1.00argnuway_intrinsics_sync_recheck'
 
 argo2_name_map = {
     'REGULAR_VEHICLE': 'Car',
