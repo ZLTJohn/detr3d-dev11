@@ -1,5 +1,6 @@
 from mmdet3d.registry import TRANSFORMS
 from mmdet3d.datasets.transforms.loading import LoadMultiViewImageFromFiles
+from mmdet3d.datasets.transforms.formating import Pack3DDetInputs
 import copy
 import mmengine
 import mmcv
@@ -26,6 +27,38 @@ class evalann2ann:
 
     def __repr__(self):
         return 'maybe we need to fix this bug'
+
+from mmcv.image.geometric import _scale_size
+@TRANSFORMS.register_module()
+class SyncFocalLength:
+    def __init__(self, specific_idx = -1):
+        self.specific_idx = specific_idx
+    def __call__(self, results):
+        num_view = results['num_views']
+        # get the back cam
+        for idx in range(num_view):
+            if results['cam2img'][idx][0][0] < results['cam2img'][0][0][0] - 100:
+                break
+        if self.specific_idx != -1:
+            idx = self.specific_idx
+        # scale_factor = results['cam2img'][0][0][0] / results['cam2img'][idx][0][0]
+        scale_factor = 1.5649831353955652
+        # resize
+        img = mmcv.imrescale(results['img'][idx],scale_factor)
+        new_h, new_w = img.shape[:2]
+        H, W = results['img'][0].shape[:2]
+        w_scale = new_w / W
+        h_scale = new_h / H
+        results['cam2img'][idx][0] *= np.array(w_scale)
+        results['cam2img'][idx][1] *= np.array(h_scale)
+        results['img'][idx] = img
+        for i in range(num_view):
+            if i != idx:
+                img = mmcv.impad(results['img'][i], shape=(new_h,new_w))
+                results['img'][i] = img
+        results['pad_shape'] = (new_h,new_w)
+        results['img_shape'] = (new_h,new_w)
+        return results
 
 @TRANSFORMS.register_module()
 class PermuteImages:
@@ -59,32 +92,23 @@ class RotateScene_neg90:
         #  sinA, cosA 0
         #  0     0    1
         # ]
-        A = -np.pi/2
+        self.A = -np.pi/2
         self.R = np.array(
             [[0,1,0,0],
             [-1,0,0,0],
             [0,0,1,0],
             [0,0,0,1]]
         )
-        self.invR = np.array([
-            [0,-1,0,0],
-            [1,0,0,0],
-            [0,0,1,0],
-            [0,0,0,1]
-        ])
-        # -np.pi/2
+        self.new2old = np.linalg.inv(self.R)
 
     def __call__(self, results):
-        # breakpoint()
-        box = results['gt_bboxes_3d'].tensor
-        box[:,[0,1]] = box[:,[1,0]]
-        box[:,1] = -box[:,1]   
-        box[:,-1] = box[:,-1] - np.pi/2
-        results['gt_bboxes_3d'].limit_yaw
-        l2c = np.array(results['lidar2cam'])
-        l2c = l2c @ self.invR
-        results['lidar2cam'] = l2c
-        results['ego_old2new'] = self.R
+        # (R.T @ pt.T).T = pt @ R
+        # we are left mult Rotation matrix, so we have to transpose it
+        results['gt_bboxes_3d'].rotate((self.R[:3,:3]).T)
+        results['lidar2cam'] = np.array(results['lidar2cam']) @ self.new2old # @ pt_new
+
+        trans = results.get('trans_mat',np.identity(4))
+        results['trans_mat'] = self.R @ trans # @ pt_origin
         # labels: x, y switch, old_yaw+new_yaw = pi/4 *2
         # ego2cam:
         return results
@@ -93,10 +117,12 @@ class RotateScene_neg90:
 
 @TRANSFORMS.register_module()
 class EgoTranslate:
-    def __init__(self, Tr_range, eval = True, frame_wise = False):
+    # TODO: add info for evaluation in case of mis-configured
+    def __init__(self, Tr_range = [0,0,0,0,0,0], eval = True, frame_wise = False, trans = None):
         self.Tr_range = Tr_range
         self.frame_wise = frame_wise
         self.eval= eval
+        self.trans = trans
         random.seed(time.time())
 
     def get_scene_token(self, results):
@@ -125,20 +151,23 @@ class EgoTranslate:
         if self.eval:
             scene_token = self.get_scene_token(results)
             random.seed(scene_token)
-        [X0,Y0,Z0,X1,Y1,Z1] = self.Tr_range
-        x = random.random() * (X1 - X0) + X0#-0.15789807484957175
-        y = random.random() * (Y1 - Y0) + Y0
-        z = random.random() * (Z1 - Z0) + Z0
-        t = np.array([x,y,z])
+        if self.trans is None:
+            [X0,Y0,Z0,X1,Y1,Z1] = self.Tr_range
+            x = random.random() * (X1 - X0) + X0#-0.15789807484957175
+            y = random.random() * (Y1 - Y0) + Y0
+            z = random.random() * (Z1 - Z0) + Z0
+            t = np.array([x,y,z])
+        else:
+            t = np.array(self.trans)
+        # ego += t, pts -= t
         new2old = np.identity(4)
         new2old[:3,3] = t
-        # ego +=t
-        box = results['gt_bboxes_3d'].tensor
-        box[:,:3] -= t
-        l2c = np.array(results['lidar2cam'])
-        l2c = l2c @ new2old
-        results['lidar2cam'] = l2c
-        results['ego_trans'] = t
+        old2new = np.identity(4)
+        old2new[:3,3] = -t
+        results['gt_bboxes_3d'].translate(-t)
+        results['lidar2cam'] = np.array(results['lidar2cam']) @ new2old # @ pt_new
+        trans = results.get('trans_mat',np.identity(4))
+        results['trans_mat'] = old2new @ trans # @ pt_origin
         return results
 
 @TRANSFORMS.register_module()

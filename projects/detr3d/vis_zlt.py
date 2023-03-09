@@ -29,7 +29,6 @@ class visualizer_zlt():
                  vis_count=300,
                  debug_name=None,
                  draw_box=True,
-                 egoaxis_sync=False,
                  vis_tensor=True,
                  draw_score_type=True,
                  ROIsampling=None):
@@ -47,13 +46,7 @@ class visualizer_zlt():
             self.debug_name = str(time.time())
         else:
             self.debug_name = debug_name
-        self.egoaxis_sync = egoaxis_sync
         self.draw_score_type = draw_score_type
-        self.R = np.array([
-            [0,1,0],
-            [-1,0,0],
-            [0,0,1]]
-        )
 
     def infer_dataset_name(self, img_paths):
         if 'way' in img_paths:
@@ -66,14 +59,19 @@ class visualizer_zlt():
             self.ds_name = 'argo2'
             self.pts_dim = -1
 
-    def load_pts(self, path):
+    def load_pts(self, img_meta):
+        path = img_meta['lidar_path']
         if self.pts_dim == -1:
             sweep = Sweep.from_feather(Path(path))
-            return sweep.xyz
+            pts = sweep.xyz
         else:
             points = np.fromfile(path, dtype=np.float32)
-            return points.reshape(-1, self.pts_dim)
-
+            pts = points.reshape(-1, self.pts_dim)
+        pts_homo = np.ones((pts.shape[0],4))
+        pts_homo[:,:3] = pts[:,:3]
+        trans = img_meta.get('trans_mat', np.identity(4))
+        pts_homo = (trans @ pts_homo.T).T
+        return pts_homo
     def load_imgs(self, img_paths):
         # imgs = [cv2.imread(path) for path in img_paths]
         imgs = [Image.open(path) for path in img_paths]
@@ -161,7 +159,7 @@ class visualizer_zlt():
             instances_3d = self.add_score(instances_3d)
 
             if img_meta.get('lidar_path'):
-                pc = self.load_pts(img_meta['lidar_path'])
+                pc = self.load_pts(img_meta)
                 self.save_bev(pc, instances_3d, dirname, filename)
             img_from_file = self.load_imgs(img_paths)
             metacopy = copy(img_meta)
@@ -310,10 +308,6 @@ class visualizer_zlt():
                 (pts[:, 1] > pc_range[1]) & (pts[:, 1] < pc_range[4]) &
                 (pts[:, 2] > pc_range[2]) & (pts[:, 2] < pc_range[5]))
         pts = pts[mask,:3]
-        if self.egoaxis_sync and self.ds_name == 'nuscenes':
-            pts = np.array(pts)
-            pts = (self.R @ pts.T).T
-            pts = torch.from_numpy(pts)
         res = 0.05
         x_max = 1 + int((pc_range[3] - pc_range[0]) / res)
         y_max = 1 + int((pc_range[4] - pc_range[1]) / res)

@@ -83,15 +83,21 @@ class CustomWaymoMetric(BaseMetric):
 
         gt_file = osp.join(eval_tmp_dir.name, 'gt.bin')
         pred_file = osp.join(eval_tmp_dir.name, 'pred.bin')
-        self.to_waymo_obj(results, gt_file, 'gt_instances')
-        self.to_waymo_obj(results, pred_file, 'pred_instances_3d')
-        waymo_evaluator = Waymo_Evaluator()
-        metric_dict = waymo_evaluator.waymo_evaluate(gt_file, pred_file)
+        waymo_evaluator = Waymo_Evaluator_native(self.classes, self.k2w_cls_map)
+        metric_dict = waymo_evaluator.waymo_evaluate(gt_file, pred_file, results)
         del waymo_evaluator
         eval_tmp_dir.cleanup()
         return metric_dict
 
-    # TODO: skip wrapping to waymo bin objects
+class Waymo_Evaluator:
+    def __init__(self, classes, k2w_cls_map) -> None:
+        self.classes = classes
+        self.k2w_cls_map = k2w_cls_map
+        self.k2w_idx_map = []
+        for i in range(len(self.classes)): 
+            self.k2w_idx_map.append(self.k2w_cls_map[self.classes[i]])
+        self.k2w_idx_map = torch.tensor(self.k2w_idx_map)
+
     def to_waymo_obj(self, results, path, ins_key):
         objs = metrics_pb2.Objects()
         print(f'Converting {ins_key} to waymo format...')
@@ -136,17 +142,88 @@ class CustomWaymoMetric(BaseMetric):
                 It has {len(objs.objects)} objects in {len(results)} frames.')
         return objs
 
-class Waymo_Evaluator:
-    def __init__(self) -> None:
-        pass
-    def waymo_evaluate(self, gt_file: str, pred_file: str) -> dict:
+    def waymo_evaluate(self, gt_file: str, pred_file: str, results) -> dict:
         from time import time
         from mmdet3d.evaluation.metrics.waymo_let_metric import \
             compute_waymo_let_metric
         _ = time()
+        self.to_waymo_obj(results, gt_file, 'gt_instances')
+        self.to_waymo_obj(results, pred_file, 'pred_instances_3d')
         ap_dict = compute_waymo_let_metric(gt_file, pred_file)
         print('time usage of compute_let_metric: {} s'.format(time() - _))
         return ap_dict
+
+class Waymo_Evaluator_native(Waymo_Evaluator):
+
+    def parse_metrics_objects(self, results):
+        eval_dict = {
+            'prediction_frame_id': [],
+            'prediction_bbox': [],
+            'prediction_type': [],
+            'prediction_score': [],
+            'ground_truth_frame_id': [],
+            'ground_truth_bbox': [],
+            'ground_truth_type': [],
+            'ground_truth_difficulty': [],
+        }
+        gt = 'gt_instances'
+        pred = 'pred_instances_3d'
+        print(f'Converting to waymo format...')
+        prog_bar = mmengine.ProgressBar(len(results))
+        for result in results:
+            sample_idx = torch.tensor(int(result['sample_idx']))
+            gt_boxes = result[gt]['bboxes_3d'].tensor
+            gt_boxes[:,2] += gt_boxes[:,5]/2
+            gt_labels = result[gt]['labels_3d']
+            difficulty = torch.tensor(label_pb2.Label.LEVEL_2)
+
+            pred_boxes = result[pred]['bboxes_3d'].tensor
+            pred_boxes[:,2] += pred_boxes[:,5]/2
+            pred_labels = result[pred]['labels_3d']
+            scores = result[pred].get('scores_3d')
+
+            eval_dict['ground_truth_frame_id'].append(sample_idx.repeat(len(gt_labels)))
+            eval_dict['ground_truth_bbox'].append(gt_boxes)
+            eval_dict['ground_truth_type'].append(self.k2w_idx_map[gt_labels])
+            eval_dict['ground_truth_difficulty'].append(difficulty.repeat(len(gt_labels)))
+
+            eval_dict['prediction_frame_id'].append(sample_idx.repeat(len(pred_labels)))
+            eval_dict['prediction_bbox'].append(pred_boxes)
+            eval_dict['prediction_type'].append(self.k2w_idx_map[pred_labels])
+            eval_dict['prediction_score'].append(scores)
+
+            prog_bar.update()
+
+        import tensorflow as tf
+        for key, value in eval_dict.items():
+            value = torch.cat(value)
+            eval_dict[key] = tf.stack(value)
+
+        return eval_dict
+
+    def waymo_evaluate(self, gt_file: str, pred_file: str, results, show=False) -> dict:
+        from time import time
+        from mmdet3d.evaluation.metrics.waymo_let_metric import compute_let_detection_metrics
+        _ = time()
+
+        eval_dict = self.parse_metrics_objects(results)
+        metrics_dict = compute_let_detection_metrics(**eval_dict)
+        keys = list(metrics_dict.keys())
+        v=[0,0,0]
+        for i in range(0,3):
+            v[i]=(metrics_dict[keys[i]]+metrics_dict[keys[i+3]]+metrics_dict[keys[i+9]])/3.0
+        output = {'OBJECT_TYPE_ALL_NS_LEVEL_2/LET-mAP':   v[0].numpy(),
+                'OBJECT_TYPE_ALL_NS_LEVEL_2/LET-mAPH':  v[1].numpy(),
+                'OBJECT_TYPE_ALL_NS_LEVEL_2/LET-mAPL':  v[2].numpy()}
+        for key, value in metrics_dict.items():
+            if 'SIGN' in key: continue
+            output[key]=value.numpy()
+        if show==True:
+            for key, value in output.items():
+                print(f'{key:<55}: {value}')
+
+        print('time usage of compute_let_metric: {} s'.format(time() - _))
+        return output
 
 @METRICS.register_module()
 class JointMetric(CustomWaymoMetric):
