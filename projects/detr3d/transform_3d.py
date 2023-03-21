@@ -20,9 +20,15 @@ class filename2img_path:
 
 @TRANSFORMS.register_module()
 class evalann2ann:
-
+    '''
+    put eval_ann_info into ann_info, in this way, we can evaluate more easily
+    also put location info into eval_ann_info
+    '''
     def __call__(self, results):
         results['ann_info'] = results['eval_ann_info']
+        results['eval_ann_info']['token'] = results.get('token')        # nusc 
+        results['eval_ann_info']['city_name'] = results.get('city_name')# argo
+        results['eval_ann_info']['timestamp'] = results.get('timestamp')  # waymo
         return results
 
     def __repr__(self):

@@ -12,6 +12,7 @@ from .nms_free_coder import NMSFreeCoder
 from .transform_3d import filename2img_path, Argo2LoadMultiViewImageFromFiles, CustomMMDDP, evalann2ann, RotateScene_neg90
 from .vovnet import VoVNet
 from .custom_concat_dataset import CustomConcatDataset, CustomNusc
+from .fpn import FPN_single
 __all__ = [
     'VoVNet', 'DETR3D', 'DETR3DHead', 'Detr3DTransformer',
     'Detr3DTransformerDecoder', 'Detr3DCrossAtten', 'HungarianAssigner3D',

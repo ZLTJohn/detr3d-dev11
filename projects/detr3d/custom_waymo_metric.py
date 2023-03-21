@@ -67,6 +67,9 @@ class CustomWaymoMetric(BaseMetric):
         # or it's about the position of self.results.append()
         for data_sample in data_samples:
             result = dict()
+            result['token'] = data_sample['eval_ann_info'].get('token') # nusc
+            result['city_name'] = data_sample['eval_ann_info'].get('city_name') # argo2
+            result['timestamp'] = data_sample['eval_ann_info'].get('timestamp') # waymo
             result['pred_instances_3d'] = data_sample['pred_instances_3d']
             result['sample_idx'] = data_sample['sample_idx']
             result['gt_instances'] = data_sample['gt_instances_3d']
@@ -227,20 +230,31 @@ class Waymo_Evaluator_native(Waymo_Evaluator):
 
 @METRICS.register_module()
 class JointMetric(CustomWaymoMetric):
-    def __init__(self, **kwargs):
+    def __init__(self, 
+                 per_location = False, 
+                 brief_metric = False, 
+                 nusc_token2city = None, 
+                 waymo_ts2env_info = None,
+                 **kwargs):
         super().__init__(**kwargs)
         self.prefix = None
         self.view2ds = {
             5: 'waymo',
-            6: 'nuscenes',
+            6: 'nusc',
             7: 'argo2'
         }
+        self.per_location = per_location
+        self.brief_metric = brief_metric
+        if self.per_location:
+            self.nusc_mp = mmengine.load(nusc_token2city)
+            self.waymo_mp = mmengine.load(waymo_ts2env_info)
         self.target = [
             'OBJECT_TYPE_ALL_NS_LEVEL_2/LET-mAP',
             'OBJECT_TYPE_TYPE_VEHICLE_LEVEL_2/LET-mAP',
             'OBJECT_TYPE_TYPE_PEDESTRIAN_LEVEL_2/LET-mAP',
             'OBJECT_TYPE_TYPE_CYCLIST_LEVEL_2/LET-mAP'
         ]
+
     def format_result(self, metrics):
         mAPs = []
         for t in self.target:
@@ -249,35 +263,66 @@ class JointMetric(CustomWaymoMetric):
                     mAPs.append(round(metrics[key]*100,1))
                     break
         return "{}% ({}%/{}%/{}%)".format(*mAPs)
-        
+    def split_per_dateset(self, results):
+        results_split = {
+                'waymo':[],
+                'nusc':[],
+                'argo2':[]
+            }
+        for item in results:
+            ds_name = self.view2ds[item['num_views']]
+            results_split[ds_name].append(item)
+        return results_split
+
+    def get_cityname(self, ds, frame):
+        if 'arg' in ds:
+            city = frame['city_name']
+        if 'nus' in ds:
+            city = self.nusc_mp[frame['token']]
+        elif 'way' in ds:
+            city = self.waymo_mp[frame['timestamp']]['location']
+        return ds+'_'+city
+
+    def split_per_loc(self, results_split):
+        ds_names = list(results_split.keys())
+        for ds in ds_names:
+            whole = results_split[ds]
+            for frame in whole:
+                cityname = self.get_cityname(ds,frame)
+                if cityname not in results_split:
+                    results_split[cityname] = []
+                results_split[cityname].append(frame)
+        return results_split
+            
     def compute_metrics(self, results: list) -> Dict[str, float]:
         from time import time
         _ = time()
         mmengine.dump(results,'results/results_{}.pkl'.format(_))
         print('save result pkl to results/results_{}.pkl'.format(_))
-        results_split = {
-            'waymo':[],
-            'nuscenes':[],
-            'argo2':[]
-        }
-        for item in results:
-            ds_name = self.view2ds[item['num_views']]
-            results_split[ds_name].append(item)
+        results_split = self.split_per_dateset(results)
+        if self.per_location:
+            results_split = self.split_per_loc(results_split)
 
         all_metrics = {}
-        ds_names = ''
-        keymetrics = []
+        brief_metric = {}
+        frame_num = {}
         for dataset_type in results_split:
             if len(results_split[dataset_type]) == 0:
                 continue
             metrics = super().compute_metrics(results_split[dataset_type])
-            ds_names+=dataset_type[:3]+' '
-            keymetrics.append(self.format_result(metrics))
+            brief_metric[dataset_type]=self.format_result(metrics)
+            frame_num[dataset_type]=len(results_split[dataset_type])
             for k, v in metrics.items():
                 all_metrics[dataset_type+'/'+k] = float(v)
-        all_metrics.update({ds_names:keymetrics})
-        return all_metrics
-            
+
+        for i in brief_metric:
+            print('{}: {}\t {}'.format(i,brief_metric[i],frame_num[i]))
+        if not self.brief_metric:
+            brief_metric.update(all_metrics)
+        # else:
+        #     brief_metric.update(frame_num)
+        return brief_metric
+
 
 # LabelConverter should be used ONLY when we are 
 # evaluating old model trained with 10 classes

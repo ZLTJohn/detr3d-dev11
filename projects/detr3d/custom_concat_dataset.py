@@ -1,5 +1,6 @@
 from typing import List, Sequence, Union
 import random
+import mmengine
 from mmengine.registry import DATASETS
 from mmengine.dataset.base_dataset import BaseDataset
 from mmengine.dataset.dataset_wrapper import ConcatDataset
@@ -74,12 +75,29 @@ class CustomNusc(NuScenesDataset):
     #     'version':
     #     'v1.0-trainval'
     # }
-    def __init__(self,**kwargs):
+    # 'singapore-onenorth'
+    # 'boston-seaport'
+    # 'singapore-queenstown'
+    # 'singapore-hollandvillage'
+    def __init__(self,location=None,frame2city=None, **kwargs):
         self.load_interval = kwargs.pop('load_interval',1)
+        self.location = location
+        if frame2city is not None:
+            self.frame2city = mmengine.load(frame2city)
         super().__init__(**kwargs)
-    
+    def filter_location(self, data_list):
+        print('NuScenesDataset: location contains {} only!'.format(self.location))
+        new_list = []
+        for i in data_list:
+            city_loc = self.frame2city[i['token']]
+            if self.location in city_loc:
+                new_list.append(i)
+        return new_list
+
     def load_data_list(self) -> List[dict]:
         """Add the load interval."""
         data_list = super().load_data_list()
         data_list = data_list[::self.load_interval]
+        if self.location is not None:
+            data_list = self.filter_location(data_list)
         return data_list
