@@ -1,0 +1,60 @@
+waymo: 47.2% (62.2%/44.8%/34.5%)  
+way_phx  : 43.1% (58.0%/36.6%/34.6%)  
+way_sf   : 48.3% (62.6%/46.4%/36.0%)  
+way_other: 42.0% (58.0%/36.3%/31.6%)  
+
+nusc: 31.2% (52.1%/31.0%/10.4%)  
+nusc_singapore-onenorth: 27.6% (48.1%/28.6%/6.2%)  
+nusc_boston-seaport: 35.7% (53.3%/33.2%/20.5%)  
+nusc_singapore-queenstown: 27.7% (44.4%/31.7%/7.1%)  
+nusc_singapore-hollandvillage: 27.7% (46.7%/27.8%/8.6%)  
+
+argo2: 41.0% (65.7%/33.9%/23.4%)  
+argo2_PIT: 42.5% (66.2%/35.6%/25.7%)  
+argo2_MIA: 37.4% (64.7%/31.5%/16.0%)  
+argo2_WDC: 28.4% (58.1%/23.8%/3.1%)  
+argo2_DTW: 47.2% (64.3%/37.4%/39.9%)  
+argo2_PAO: 39.8% (65.5%/35.9%/18.1%)  
+argo2_ATX: 32.5% (38.7%/34.8%/24.1%)
+
+texure problem: singapore texure differs from those in the US
+Domain Gap
+
+
+
+
+w/o singapore
+waymo: 46.5% (62.2%/43.7%/33.5%)  
+nusc: 28.4% (44.9%/28.3%/12.1%)  
+argo2: 41.4% (65.5%/33.4%/25.3%)  
+waymo_location_phx: 42.1% (57.7%/33.1%/35.4%)  
+waymo_location_sf: 48.3% (62.8%/45.6%/36.6%)  
+waymo_location_other: 38.3% (58.2%/32.2%/24.5%)  
+nusc_singapore-onenorth: 19.5% (28.9%/25.9%/3.7%)  
+nusc_boston-seaport: 35.9% (51.8%/31.3%/24.5%)  
+nusc_singapore-queenstown: 17.9% (27.4%/25.7%/0.7%) 
+nusc_singapore-hollandvillage: 15.6% (27.9%/18.7%/0.0%)  
+argo2_PIT: 43.2% (66.2%/34.8%/28.7%)  
+argo2_MIA: 37.1% (63.9%/30.6%/16.8%)  
+argo2_WDC: 28.2% (57.5%/23.9%/3.2%)  
+argo2_DTW: 51.3% (63.7%/36.9%/53.4%)  
+argo2_PAO: 39.9% (66.8%/35.0%/17.8%)  
+argo2_ATX: 33.5% (42.4%/32.4%/25.8%)
+
+onefpn Ksync RtK aware
+waymo: 46.4% (61.6%/44.3%/33.2%)  
+nusc: 37.0% (56.6%/38.0%/16.4%)  
+argo2: 43.3% (66.6%/37.3%/26.1%)  
+waymo_location_phx: 41.2% (57.4%/34.9%/31.2%)  
+waymo_location_sf: 48.6% (62.0%/46.3%/37.5%)  
+waymo_location_other: 37.9% (58.0%/30.9%/24.9%)  
+nusc_singapore-onenorth: 33.1% (52.7%/37.0%/9.7%)  
+nusc_boston-seaport: 43.6% (57.9%/39.5%/33.5%)  
+nusc_singapore-queenstown: 31.1% (48.6%/37.7%/6.9%)  
+nusc_singapore-hollandvillage: 25.2% (48.4%/16.6%/10.7%)  
+argo2_PIT: 44.6% (66.6%/37.7%/29.6%)  
+argo2_MIA: 38.9% (65.8%/35.2%/15.7%)  
+argo2_WDC: 30.0% (58.4%/27.9%/3.8%)  
+argo2_DTW: 49.3% (64.3%/42.0%/41.6%)  
+argo2_PAO: 44.3% (69.3%/35.3%/28.4%)  
+argo2_ATX: 31.4% (42.7%/36.9%/14.8%)
