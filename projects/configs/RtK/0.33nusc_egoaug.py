@@ -43,7 +43,7 @@ nusc_train_interval = 1
 nusc_val_pkl = 'nuscenes_infos_val_part.pkl'
 nusc_val_interval = 1
 
-waymo_type = 'WaymoDataset'
+waymo_type = 'CustomWaymo'
 waymo_data_root = 'data/waymo_dev1x/kitti_format'
 waymo_train_pkl = 'waymo_infos_train_2Hz_part.pkl'
 waymo_train_interval = 1    # 2Hz_part means interval = 5x3
@@ -196,11 +196,11 @@ argo2_pipeline_default = [
 ]
 argo2_train_pipeline = argo2_pipeline_default + [
     dict(type='MultiViewWrapper', transforms=[dict(type='PhotoMetricDistortion3D')] + argo2_test_transforms),
-    dict(type='Pack3DDetInputs', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
+    dict(type='Pack3DDetInputsExtra', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
 ]
 argo2_test_pipeline = [dict(type='evalann2ann')] + argo2_pipeline_default + [
     dict(type='MultiViewWrapper', transforms=argo2_test_transforms),
-    dict(type='Pack3DDetInputs', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
+    dict(type='Pack3DDetInputsExtra', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
 ]
 
 argo2_data_prefix = dict()
@@ -244,12 +244,12 @@ nusc_train_pipeline = nusc_pipeline_default + [
     dict(type='EgoTranslate', Tr_range = [-2,-2,0,2,2,0], eval=False),
     dict(type='ObjectRangeFilter', point_cloud_range=point_cloud_range),
     dict(type='MultiViewWrapper', transforms=[dict(type='PhotoMetricDistortion3D')] + nusc_test_transforms),
-    dict(type='Pack3DDetInputs', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
+    dict(type='Pack3DDetInputsExtra', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
 ]
 nusc_test_pipeline = [dict(type='evalann2ann')] + nusc_pipeline_default + [
     dict(type='ObjectRangeFilter', point_cloud_range=point_cloud_range),
     dict(type='MultiViewWrapper', transforms=nusc_test_transforms),
-    dict(type='Pack3DDetInputs', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
+    dict(type='Pack3DDetInputsExtra', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
 ]
 
 nusc_data_prefix = dict(pts='samples/LIDAR_TOP',
@@ -300,11 +300,11 @@ waymo_pipeline_default = [
 
 waymo_train_pipeline = waymo_pipeline_default + [
     dict(type='MultiViewWrapper', transforms=[dict(type='PhotoMetricDistortion3D')] + waymo_test_transforms),
-    dict(type='Pack3DDetInputs', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
+    dict(type='Pack3DDetInputsExtra', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
 ]
 waymo_test_pipeline = [dict(type='evalann2ann')] + waymo_pipeline_default + [
     dict(type='MultiViewWrapper', transforms=waymo_test_transforms),
-    dict(type='Pack3DDetInputs', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
+    dict(type='Pack3DDetInputsExtra', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
 ]
 
 waymo_data_prefix = dict(
