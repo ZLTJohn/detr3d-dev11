@@ -4,6 +4,7 @@ import mmengine
 from mmengine.registry import DATASETS
 from mmengine.dataset.base_dataset import BaseDataset
 from mmengine.dataset.dataset_wrapper import ConcatDataset
+from mmdet3d.datasets import NuScenesDataset, WaymoDataset, LyftDataset
 
 @DATASETS.register_module()
 class CustomConcatDataset(ConcatDataset):
@@ -66,7 +67,6 @@ class CustomConcatDataset(ConcatDataset):
         if not lazy_init:
             self.full_init()
 
-from mmdet3d.datasets import NuScenesDataset
 @DATASETS.register_module()
 class CustomNusc(NuScenesDataset):
     # METAINFO = {
@@ -79,25 +79,91 @@ class CustomNusc(NuScenesDataset):
     # 'boston-seaport'
     # 'singapore-queenstown'
     # 'singapore-hollandvillage'
-    def __init__(self,location=None,frame2city=None, **kwargs):
+    def __init__(self,locations=None, **kwargs):
         self.load_interval = kwargs.pop('load_interval',1)
-        self.location = location
-        if frame2city is not None:
-            self.frame2city = mmengine.load(frame2city)
+        self.locations = locations
         super().__init__(**kwargs)
+
     def filter_location(self, data_list):
-        print('NuScenesDataset: location contains {} only!'.format(self.location))
+        print('NuScenesDataset: location contains {} only!'.format(self.locations))
         new_list = []
         for i in data_list:
-            city_loc = self.frame2city[i['token']]
-            if self.location in city_loc:
+            if i['city_name'] in self.locations:
                 new_list.append(i)
         return new_list
+    
+    def add_dataset_name(self,data_list):
+        for i in data_list:
+            i['dataset_name'] = self.metainfo['dataset']
+        return data_list
 
     def load_data_list(self) -> List[dict]:
         """Add the load interval."""
         data_list = super().load_data_list()
         data_list = data_list[::self.load_interval]
-        if self.location is not None:
+        data_list = self.add_dataset_name(data_list)
+        if self.locations is not None:
+            data_list = self.filter_location(data_list)
+        return data_list
+    
+@DATASETS.register_module()
+class CustomWaymo(WaymoDataset):
+# location_other
+# location_phx
+# location_sf
+    def __init__(self,locations=None, **kwargs):
+        self.locations = locations
+        super().__init__(**kwargs)
+    
+    def filter_location(self, data_list):
+        print('WaymoDataset: location contains {} only!'.format(self.locations))
+        new_list = []
+        for i in data_list:
+            if i['city_name'] in self.locations:
+                new_list.append(i)
+        return new_list
+    
+    def add_dataset_name(self,data_list):
+        for i in data_list:
+            i['dataset_name'] = self.metainfo['dataset']
+        return data_list
+
+    def load_data_list(self) -> List[dict]:
+        """Add the load interval."""
+        data_list = super().load_data_list()
+        data_list = data_list[::self.load_interval]
+        data_list = self.add_dataset_name(data_list)
+        if self.locations is not None:
+            data_list = self.filter_location(data_list)
+        return data_list
+
+@DATASETS.register_module()
+class CustomLyft(LyftDataset):
+    # Palo_Alto
+    def __init__(self,locations=None, **kwargs):
+        self.load_interval = kwargs.pop('load_interval',1)
+        self.locations = locations
+        super().__init__(**kwargs)
+
+    def filter_location(self, data_list):
+        print('LyftDataset: location contains {} only!'.format(self.locations))
+        new_list = []
+        for i in data_list:
+            if i['city_name'] in self.locations:
+                new_list.append(i)
+        return new_list
+    
+    def add_dataset_name(self,data_list):
+        breakpoint()
+        for i in data_list:
+            i['dataset_name'] = self.metainfo['dataset']
+        return data_list
+
+    def load_data_list(self) -> List[dict]:
+        """Add the load interval."""
+        data_list = super().load_data_list()
+        data_list = data_list[::self.load_interval]
+        data_list = self.add_dataset_name(data_list)
+        if self.locations is not None:
             data_list = self.filter_location(data_list)
         return data_list

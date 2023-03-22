@@ -43,7 +43,7 @@ nusc_train_interval = 1
 nusc_val_pkl = 'nuscenes_infos_val_part.pkl'
 nusc_val_interval = 1
 nusc_frame2city = 'data/nus_v2/token2citylocation.pkl'
-nusc_location = 'boston'
+nusc_locations = ['boston-seaport']
 
 waymo_type = 'WaymoDataset'
 waymo_data_root = 'data/waymo_dev1x/kitti_format'
@@ -270,8 +270,7 @@ nusc_default = dict(
     box_type_3d='LiDAR')
 nusc_train = dict(type=nusc_type,
                  data_root=nusc_data_root,
-                 location = nusc_location,
-                 frame2city = nusc_frame2city,
+                 locations = nusc_locations,
                  ann_file=nusc_train_pkl,
                  pipeline=nusc_train_pipeline,
                  load_interval = nusc_train_interval,
@@ -340,7 +339,7 @@ waymo_val = dict(type=waymo_type,
 
 argnuway_train = dict(
         type='CustomConcatDataset',
-        datasets=[argo2_train, nusc_train, waymo_train])
+        datasets=[nusc_train])
 argnuway_val = dict(
         type='CustomConcatDataset',
         datasets=[argo2_val, nusc_val, waymo_val])
@@ -362,9 +361,7 @@ test_dataloader = val_dataloader
 
 val_evaluator = dict(type = 'JointMetric',
                      per_location = True,
-                     brief_metric = True,
-                     nusc_token2city = 'data/nus_v2/token2citylocation.pkl',
-                     waymo_ts2env_info = 'data/waymo_dev1x/timestamp2envinfo_trainval.pkl')
+                     brief_metric = True)
 test_evaluator = val_evaluator
 
 # learning rate

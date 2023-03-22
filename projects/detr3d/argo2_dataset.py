@@ -20,8 +20,12 @@ CAM_NAMES = [
     'ring_side_left',
     # 'stereo_front_left', 'stereo_front_right',
 ]
-
-
+# ATX
+# DTW
+# MIA
+# PAO
+# PIT
+# WDC
 @DATASETS.register_module()
 class Argo2Dataset(KittiDataset):
     METAINFO = {'classes': tuple(x.value for x in CompetitionCategories)}
@@ -30,6 +34,7 @@ class Argo2Dataset(KittiDataset):
             self,
             data_root: str,
             ann_file: str,
+            locations=None,
             data_prefix: dict = {},  # too many cams
             pipeline: List[Union[dict, Callable]] = [],
             modality: dict = dict(use_lidar=True, use_camera=True),
@@ -44,6 +49,7 @@ class Argo2Dataset(KittiDataset):
         self.load_interval = load_interval
         self.cat_ids = range(len(CLASSES))
         self.cat2label = {cat_id: i for i, cat_id in enumerate(self.cat_ids)}
+        self.locations = locations
         super().__init__(data_root=data_root,
                          ann_file=ann_file,
                          pipeline=pipeline,
@@ -101,11 +107,27 @@ class Argo2Dataset(KittiDataset):
                             depths=depths)
 
         return anns_results
-
+    
+    def filter_location(self, data_list):
+        print('Argo2Dataset: location contains {} only!'.format(self.locations))
+        new_list = []
+        for i in data_list:
+            if i['city_name'] in self.locations:
+                new_list.append(i)
+        return new_list
+    
+    def add_dataset_name(self,data_list):
+        for i in data_list:
+            i['dataset_name'] = self.metainfo['dataset']
+        return data_list
+    
     def load_data_list(self) -> List[dict]:
         """Add the load interval."""
         data_list = super().load_data_list()
         data_list = data_list[::self.load_interval]
+        data_list = self.add_dataset_name(data_list)
+        if self.locations is not None:
+            data_list = self.filter_location(data_list)
         return data_list
 
     def parse_data_info(self, info: dict) -> Union[dict, List[dict]]:

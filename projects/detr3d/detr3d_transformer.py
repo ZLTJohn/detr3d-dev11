@@ -233,6 +233,7 @@ class Detr3DCrossAtten(BaseModule):
                  batch_first=False,
                  waymo_with_nuscene=False,
                  waymo_with_argo2=False,
+                 multi_dataset=False,
                  feature_sampler=dict(type='DefaultFeatSampler')):
         super(Detr3DCrossAtten, self).__init__(init_cfg)
         if embed_dims % num_heads != 0:
@@ -280,8 +281,7 @@ class Detr3DCrossAtten(BaseModule):
             nn.ReLU(inplace=True),
         )
         self.batch_first = batch_first
-        self.waymo_with_nuscene = waymo_with_nuscene
-        self.waymo_with_argo2 = waymo_with_argo2
+        self.multi_dataset =  (waymo_with_nuscene or waymo_with_argo2 or multi_dataset)
         self.feature_sampler = MODELS.build(feature_sampler)
         self.init_weight()
 
@@ -330,9 +330,6 @@ class Detr3DCrossAtten(BaseModule):
         query = query.permute(1, 0, 2)
 
         bs, num_query, _ = query.size()
-        # attention_feature = layer(query).view(bs,1,num_q,1,1,lvl,128)
-        # cam_feature = layer(R,t).view(1,1,1,num_cam,1,1,1,128)
-        # attention_weights = attn_layer(attention_feature*cam_feature)
         attention_weights = self.attention_weights(query).view(
             bs, 1, num_query, self.num_cams, self.num_points, self.num_levels)
 
@@ -341,14 +338,13 @@ class Detr3DCrossAtten(BaseModule):
             value, reference_points, self.pc_range, kwargs['img_metas'])
         mask = torch.nan_to_num(mask)
         output = torch.nan_to_num(output)
-        if self.waymo_with_nuscene == True or self.waymo_with_argo2==True:
+        if self.multi_dataset:
             # enlarge mask and output
             num_img = mask.shape[3]
             mask_ext = torch.zeros_like(mask[:,:,:,:self.num_cams-num_img, ...])
             output_ext = torch.zeros_like(output[:,:,:,:self.num_cams-num_img, ...])
             mask = torch.cat((mask, mask_ext),dim=3)
             output = torch.cat((output,output_ext),dim=3)
-            # attention_weights = attention_weights[:, :, :, :num_view, ...]
 
         attention_weights = attention_weights.sigmoid() * mask
         output = output * attention_weights

@@ -67,13 +67,14 @@ class CustomWaymoMetric(BaseMetric):
         # or it's about the position of self.results.append()
         for data_sample in data_samples:
             result = dict()
-            result['token'] = data_sample['eval_ann_info'].get('token') # nusc
-            result['city_name'] = data_sample['eval_ann_info'].get('city_name') # argo2
-            result['timestamp'] = data_sample['eval_ann_info'].get('timestamp') # waymo
+            result['city_name'] = data_sample['city_name']
+            result['dataset_name'] = data_sample['dataset_name']
             result['pred_instances_3d'] = data_sample['pred_instances_3d']
             result['sample_idx'] = data_sample['sample_idx']
             result['gt_instances'] = data_sample['gt_instances_3d']
-            result['num_views'] = data_sample['num_views']
+            # result['num_views'] = data_sample['num_views']
+            # result['token'] = data_sample['eval_ann_info'].get('token') # nusc
+            # result['timestamp'] = data_sample['eval_ann_info'].get('timestamp') # waymo
             self.results.append(self.to_cpu(result))
 
     def compute_metrics(self, results: list) -> Dict[str, float]:
@@ -233,21 +234,11 @@ class JointMetric(CustomWaymoMetric):
     def __init__(self, 
                  per_location = False, 
                  brief_metric = False, 
-                 nusc_token2city = None, 
-                 waymo_ts2env_info = None,
                  **kwargs):
         super().__init__(**kwargs)
         self.prefix = None
-        self.view2ds = {
-            5: 'waymo',
-            6: 'nusc',
-            7: 'argo2'
-        }
         self.per_location = per_location
         self.brief_metric = brief_metric
-        if self.per_location:
-            self.nusc_mp = mmengine.load(nusc_token2city)
-            self.waymo_mp = mmengine.load(waymo_ts2env_info)
         self.target = [
             'OBJECT_TYPE_ALL_NS_LEVEL_2/LET-mAP',
             'OBJECT_TYPE_TYPE_VEHICLE_LEVEL_2/LET-mAP',
@@ -263,35 +254,40 @@ class JointMetric(CustomWaymoMetric):
                     mAPs.append(round(metrics[key]*100,1))
                     break
         return "{}% ({}%/{}%/{}%)".format(*mAPs)
-    def split_per_dateset(self, results):
-        results_split = {
-                'waymo':[],
-                'nusc':[],
-                'argo2':[]
-            }
-        for item in results:
-            ds_name = self.view2ds[item['num_views']]
-            results_split[ds_name].append(item)
-        return results_split
 
-    def get_cityname(self, ds, frame):
-        if 'arg' in ds:
-            city = frame['city_name']
-        if 'nus' in ds:
-            city = self.nusc_mp[frame['token']]
-        elif 'way' in ds:
-            city = self.waymo_mp[frame['timestamp']]['location']
-        return ds+'_'+city
+    def split_per_dateset(self, results):
+        datasets = []
+        for frame in results:
+            dataset_name = frame['dataset_name']
+            if dataset_name not in datasets:
+                datasets.append(dataset_name)
+
+        datasets = sorted(datasets)
+        results_split = {ds: [] for ds in datasets}
+
+        for frame in results:
+            results_split[frame['dataset_name']].append(frame)
+
+        return results_split
 
     def split_per_loc(self, results_split):
         ds_names = list(results_split.keys())
         for ds in ds_names:
             whole = results_split[ds]
+            cities = []
             for frame in whole:
-                cityname = self.get_cityname(ds,frame)
+                cityname = ds+'_'+frame['city_name']
                 if cityname not in results_split:
-                    results_split[cityname] = []
+                    cities.append(cityname)
+
+            cities = sorted(cities)
+            for city in cities:
+                results_split[city] = []
+
+            for frame in whole:
+                cityname = ds+'_'+frame['city_name']
                 results_split[cityname].append(frame)
+
         return results_split
             
     def compute_metrics(self, results: list) -> Dict[str, float]:

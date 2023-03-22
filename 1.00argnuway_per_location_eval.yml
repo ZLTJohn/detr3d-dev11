@@ -24,22 +24,22 @@ Domain Gap
 
 
 w/o singapore
-waymo: 46.5% (62.2%/43.7%/33.5%)  
-nusc: 28.4% (44.9%/28.3%/12.1%)  
-argo2: 41.4% (65.5%/33.4%/25.3%)  
-waymo_location_phx: 42.1% (57.7%/33.1%/35.4%)  
-waymo_location_sf: 48.3% (62.8%/45.6%/36.6%)  
-waymo_location_other: 38.3% (58.2%/32.2%/24.5%)  
-nusc_singapore-onenorth: 19.5% (28.9%/25.9%/3.7%)  
-nusc_boston-seaport: 35.9% (51.8%/31.3%/24.5%)  
-nusc_singapore-queenstown: 17.9% (27.4%/25.7%/0.7%) 
-nusc_singapore-hollandvillage: 15.6% (27.9%/18.7%/0.0%)  
-argo2_PIT: 43.2% (66.2%/34.8%/28.7%)  
-argo2_MIA: 37.1% (63.9%/30.6%/16.8%)  
-argo2_WDC: 28.2% (57.5%/23.9%/3.2%)  
-argo2_DTW: 51.3% (63.7%/36.9%/53.4%)  
-argo2_PAO: 39.9% (66.8%/35.0%/17.8%)  
-argo2_ATX: 33.5% (42.4%/32.4%/25.8%)
+waymo: 46.5% (62.2%/43.7%/33.5%)         2666
+nusc: 28.4% (44.9%/28.3%/12.1%)  2007
+argo2: 41.4% (65.5%/33.4%/25.3%)         1569
+waymo_location_phx: 42.1% (57.7%/33.1%/35.4%)    1224
+waymo_location_sf: 48.3% (62.8%/45.6%/36.6%)     1164
+waymo_location_other: 38.3% (58.2%/32.2%/24.5%)  278
+nusc_singapore-onenorth: 19.5% (28.9%/25.9%/3.7%)        466
+nusc_boston-seaport: 35.9% (51.8%/31.3%/24.5%)   1030
+nusc_singapore-queenstown: 17.9% (27.4%/25.7%/0.7%)      310
+nusc_singapore-hollandvillage: 15.6% (27.9%/18.7%/0.0%)  201
+argo2_PIT: 43.2% (66.2%/34.8%/28.7%)     533
+argo2_MIA: 37.1% (63.9%/30.6%/16.8%)     514
+argo2_WDC: 28.2% (57.5%/23.9%/3.2%)      187
+argo2_DTW: 51.3% (63.7%/36.9%/53.4%)     221
+argo2_PAO: 39.9% (66.8%/35.0%/17.8%)     72
+argo2_ATX: 33.5% (42.4%/32.4%/25.8%)     42
 
 onefpn Ksync RtK aware
 waymo: 46.4% (61.6%/44.3%/33.2%)  

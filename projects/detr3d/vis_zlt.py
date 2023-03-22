@@ -48,20 +48,14 @@ class visualizer_zlt():
             self.debug_name = debug_name
         self.draw_score_type = draw_score_type
 
-    def infer_dataset_name(self, img_paths):
-        if 'way' in img_paths:
-            self.ds_name = 'waymo'
-            self.pts_dim = 6
-        elif 'nus' in img_paths:
-            self.ds_name = 'nuscenes'
-            self.pts_dim = 5
-        else:
-            self.ds_name = 'argo2'
-            self.pts_dim = -1
+    def get_dataset_name(self, img_meta):
+        self.ds_name = img_meta['dataset_name']
 
     def load_pts(self, img_meta):
         path = img_meta['lidar_path']
-        if self.pts_dim == -1:
+        self.pts_dim = img_meta['num_pts_feats']
+        file_format = os.path.splitext(path)[1]
+        if file_format == '.feather':# TODO: use condition of file format
             sweep = Sweep.from_feather(Path(path))
             pts = sweep.xyz
         else:
@@ -149,7 +143,7 @@ class visualizer_zlt():
         img_paths = img_meta['img_path']
         if type(img_paths) != list:
             img_paths = [img_paths]
-        self.infer_dataset_name(img_paths[0])
+        self.get_dataset_name(img_meta)
         dirname = self.get_dir(str(img_meta['sample_idx']))
         filename = self.get_name()+name_suffix
 

@@ -3,6 +3,7 @@ from mmdet3d.datasets.transforms.loading import LoadMultiViewImageFromFiles
 from mmdet3d.datasets.transforms.formating import Pack3DDetInputs
 import copy
 import mmengine
+from mmengine.fileio import get
 import mmcv
 import numpy as np
 import os.path as osp
@@ -19,6 +20,19 @@ class filename2img_path:
         return 'maybe we need to fix this bug'
 
 @TRANSFORMS.register_module()
+class Pack3DDetInputsExtra(Pack3DDetInputs):
+    def __init__(self, **kwargs) -> None:
+        extra_keys = [
+            'dataset_name',
+            'city_name',
+            'timestamp',
+            'token',
+            'num_pts_feats',
+        ]
+        super().__init__(**kwargs)
+        self.meta_keys = tuple(list(self.meta_keys)+extra_keys)
+
+@TRANSFORMS.register_module()
 class evalann2ann:
     '''
     put eval_ann_info into ann_info, in this way, we can evaluate more easily
@@ -26,13 +40,32 @@ class evalann2ann:
     '''
     def __call__(self, results):
         results['ann_info'] = results['eval_ann_info']
-        results['eval_ann_info']['token'] = results.get('token')        # nusc 
-        results['eval_ann_info']['city_name'] = results.get('city_name')# argo
-        results['eval_ann_info']['timestamp'] = results.get('timestamp')  # waymo
+        # results['eval_ann_info']['token'] = results.get('token')        # nusc
+        # results['eval_ann_info']['city_name'] = results.get('city_name')# argo
+        # results['eval_ann_info']['timestamp'] = results.get('timestamp')  # waymo
         return results
 
     def __repr__(self):
         return 'maybe we need to fix this bug'
+from mmdet3d.datasets.transforms.transforms_3d import Resize3D, MultiViewWrapper
+@TRANSFORMS.register_module()
+class Ksync:
+    def __init__(self, fx = -1, fy = -1):
+        self.resize3d = MultiViewWrapper(transforms = [Resize3D(scale_factor = (1.0, 1.0))])
+        self.fx = fx
+        self.fy = fy
+    
+    def __call__(self, results):
+        K = results['cam2img'][0]
+        fx = K[0][0]
+        fy = K[1][1]
+        scalex = self.fx / fx
+        scaley = self.fy / fy
+        if self.fy==-1:
+            scaley = scalex
+        self.resize3d.transforms.transforms[0].scale_factor = (scalex, scaley)
+        return self.resize3d(results)
+
 
 from mmcv.image.geometric import _scale_size
 @TRANSFORMS.register_module()
@@ -243,12 +276,11 @@ class Argo2LoadMultiViewImageFromFiles(LoadMultiViewImageFromFiles):
 
         results['ori_cam2img'] = copy.deepcopy(results['cam2img'])
 
-        if self.file_client is None:
-            self.file_client = mmengine.FileClient(**self.file_client_args)
-
         # img is of shape (h, w, c, num_views)
         # h and w can be different for different views
-        img_bytes = [self.file_client.get(name) for name in filename]
+        img_bytes = [
+            get(name, backend_args=self.backend_args) for name in filename
+        ]
         imgs = [
             mmcv.imfrombytes(img_byte, flag=self.color_type)
             for img_byte in img_bytes
