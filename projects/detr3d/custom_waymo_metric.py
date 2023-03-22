@@ -14,6 +14,7 @@ from mmengine.structures import InstanceData
 from waymo_open_dataset import label_pb2
 from waymo_open_dataset.protos import metrics_pb2
 from mmengine.structures import BaseDataElement
+import copy
 # refer to work_dirs_dev11/NusResEpoch2x/20230106_232132/20230106_232132.log
 # more checks are needed for this module
 @METRICS.register_module()
@@ -286,7 +287,8 @@ class JointMetric(CustomWaymoMetric):
 
             for frame in whole:
                 cityname = ds+'_'+frame['city_name']
-                results_split[cityname].append(frame)
+                # deepcopy to prevent repeated operations on the same data
+                results_split[cityname].append(copy.deepcopy(frame))
 
         return results_split
             

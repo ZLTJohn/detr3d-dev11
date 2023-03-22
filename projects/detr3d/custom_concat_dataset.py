@@ -154,7 +154,6 @@ class CustomLyft(LyftDataset):
         return new_list
     
     def add_dataset_name(self,data_list):
-        breakpoint()
         for i in data_list:
             i['dataset_name'] = self.metainfo['dataset']
         return data_list

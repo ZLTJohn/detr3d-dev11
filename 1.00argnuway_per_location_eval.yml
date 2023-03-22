@@ -1,28 +1,28 @@
-waymo: 47.2% (62.2%/44.8%/34.5%)  
-way_phx  : 43.1% (58.0%/36.6%/34.6%)  
-way_sf   : 48.3% (62.6%/46.4%/36.0%)  
-way_other: 42.0% (58.0%/36.3%/31.6%)  
-
-nusc: 31.2% (52.1%/31.0%/10.4%)  
-nusc_singapore-onenorth: 27.6% (48.1%/28.6%/6.2%)  
-nusc_boston-seaport: 35.7% (53.3%/33.2%/20.5%)  
-nusc_singapore-queenstown: 27.7% (44.4%/31.7%/7.1%)  
-nusc_singapore-hollandvillage: 27.7% (46.7%/27.8%/8.6%)  
-
-argo2: 41.0% (65.7%/33.9%/23.4%)  
-argo2_PIT: 42.5% (66.2%/35.6%/25.7%)  
-argo2_MIA: 37.4% (64.7%/31.5%/16.0%)  
-argo2_WDC: 28.4% (58.1%/23.8%/3.1%)  
-argo2_DTW: 47.2% (64.3%/37.4%/39.9%)  
-argo2_PAO: 39.8% (65.5%/35.9%/18.1%)  
-argo2_ATX: 32.5% (38.7%/34.8%/24.1%)
+argoverse2: 41.0% (65.7%/33.9%/23.4%)    1569
+lyft: 0.9% (1.3%/0.8%/0.6%)      1890
+nuscenes: 31.2% (52.1%/31.0%/10.4%)      2007
+waymo: 47.2% (62.2%/44.8%/34.5%)         2666
+argoverse2_ATX: 40.1% (45.6%/33.5%/41.0%)        42
+argoverse2_DTW: 48.6% (65.9%/37.8%/42.2%)        221
+argoverse2_MIA: 38.8% (66.3%/31.8%/18.2%)        514
+argoverse2_PAO: 40.9% (67.2%/35.7%/19.7%)        72
+argoverse2_PIT: 44.9% (69.0%/36.2%/29.6%)        533
+argoverse2_WDC: 29.4% (60.6%/24.3%/3.1%)         187
+lyft_Palo_Alto: 0.9% (1.3%/0.8%/0.6%)    1890
+nuscenes_boston-seaport: 36.1% (54.6%/33.5%/20.3%)       1030
+nuscenes_singapore-hollandvillage: 28.0% (47.6%/27.8%/8.6%)      201
+nuscenes_singapore-onenorth: 28.2% (48.3%/29.0%/7.3%)    466
+nuscenes_singapore-queenstown: 27.6% (45.4%/33.5%/3.9%)  310
+waymo_location_other: 42.7% (58.9%/37.4%/31.8%)  278
+waymo_location_phx: 43.8% (59.5%/36.6%/35.2%)    1224
+waymo_location_sf: 49.0% (64.3%/46.8%/36.0%)     1164
 
 texure problem: singapore texure differs from those in the US
 Domain Gap
 
 
 
-
+# need re-eval
 w/o singapore
 waymo: 46.5% (62.2%/43.7%/33.5%)         2666
 nusc: 28.4% (44.9%/28.3%/12.1%)  2007
@@ -41,6 +41,7 @@ argo2_DTW: 51.3% (63.7%/36.9%/53.4%)     221
 argo2_PAO: 39.9% (66.8%/35.0%/17.8%)     72
 argo2_ATX: 33.5% (42.4%/32.4%/25.8%)     42
 
+# need re-eval
 onefpn Ksync RtK aware
 waymo: 46.4% (61.6%/44.3%/33.2%)  
 nusc: 37.0% (56.6%/38.0%/16.4%)  
