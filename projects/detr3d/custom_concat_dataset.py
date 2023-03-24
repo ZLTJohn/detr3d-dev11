@@ -4,7 +4,7 @@ import mmengine
 from mmengine.registry import DATASETS
 from mmengine.dataset.base_dataset import BaseDataset
 from mmengine.dataset.dataset_wrapper import ConcatDataset
-from mmdet3d.datasets import NuScenesDataset, WaymoDataset, LyftDataset
+from mmdet3d.datasets import NuScenesDataset, WaymoDataset, LyftDataset, KittiDataset
 
 @DATASETS.register_module()
 class CustomConcatDataset(ConcatDataset):
@@ -165,4 +165,35 @@ class CustomLyft(LyftDataset):
         data_list = self.add_dataset_name(data_list)
         if self.locations is not None:
             data_list = self.filter_location(data_list)
+        return data_list
+    
+@DATASETS.register_module()
+class CustomKitti(KittiDataset):
+    # TODO: add img_path for CAM3 in info['images']
+    def __init__(self,locations=None, **kwargs):
+        self.load_interval = kwargs.pop('load_interval',1)
+        self.locations = locations
+        super().__init__(**kwargs)
+
+    # def filter_location(self, data_list):
+    #     print('KittiDataset: location contains {} only!'.format(self.locations))
+    #     new_list = []
+    #     for i in data_list:
+    #         if i['city_name'] in self.locations:
+    #             new_list.append(i)
+    #     return new_list
+    
+    def add_dataset_name(self,data_list):
+        for i in data_list:
+            i['dataset_name'] = self.metainfo['dataset']
+            i['city_name'] = 'Germany'
+        return data_list
+
+    def load_data_list(self) -> List[dict]:
+        """Add the load interval."""
+        data_list = super().load_data_list()
+        data_list = data_list[::self.load_interval]
+        data_list = self.add_dataset_name(data_list)
+        # if self.locations is not None:
+        #     data_list = self.filter_location(data_list)
         return data_list

@@ -40,9 +40,6 @@ class evalann2ann:
     '''
     def __call__(self, results):
         results['ann_info'] = results['eval_ann_info']
-        # results['eval_ann_info']['token'] = results.get('token')        # nusc
-        # results['eval_ann_info']['city_name'] = results.get('city_name')# argo
-        # results['eval_ann_info']['timestamp'] = results.get('timestamp')  # waymo
         return results
 
     def __repr__(self):
@@ -267,6 +264,8 @@ class Argo2LoadMultiViewImageFromFiles(LoadMultiViewImageFromFiles):
 
         filename, cam2img, lidar2cam = [], [], []
         for _, cam_item in results['images'].items():
+            if 'img_path' not in cam_item: # for kitti-mono
+                continue
             filename.append(cam_item['img_path'])
             cam2img.append(cam_item['cam2img'])
             lidar2cam.append(cam_item['lidar2cam'])

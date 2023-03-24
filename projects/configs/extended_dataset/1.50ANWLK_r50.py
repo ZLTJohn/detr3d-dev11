@@ -22,11 +22,21 @@ argo2_class_names = ['ARTICULATED_BUS', 'BICYCLE', 'BICYCLIST', 'BOLLARD',
     'PEDESTRIAN', 'REGULAR_VEHICLE', 'SCHOOL_BUS', 'SIGN', 'STOP_SIGN', 
     'STROLLER', 'TRUCK', 'TRUCK_CAB', 'VEHICULAR_TRAILER', 'WHEELCHAIR', 
     'WHEELED_DEVICE', 'WHEELED_RIDER']
+lyft_class_names = [
+    'car', 'truck', 'bus', 'emergency_vehicle', 'other_vehicle', 'motorcycle',
+    'bicycle', 'pedestrian', 'animal'
+]
+kitti_class_names = ['Pedestrian','Cyclist','Car','Van','Truck','Person_sitting','Tram','Misc']
 num_class = 3
 argo2_num_views = 7
+lyft_num_views = 6
+kitti_num_views = 1
 img_size_argo2 = (1024,800)
 img_size_nusc = (800, 450)
 img_size_waymo = (960, 640)
+img_scale_factor_lyft = 0.5
+img_size_kitti = (1242, 375)
+# img_size_lyft = (1920,1080) and (1224,1024)
 evaluation_interval = 12 # epochs
 # load_from = 'ckpts/'
 argo2_type = 'Argo2Dataset'
@@ -42,8 +52,6 @@ nusc_train_pkl = 'nuscenes_infos_train_part.pkl'
 nusc_train_interval = 1
 nusc_val_pkl = 'nuscenes_infos_val_part.pkl'
 nusc_val_interval = 1
-nusc_frame2city = 'data/nus_v2/token2citylocation.pkl'
-nusc_locations = ['boston-seaport']
 
 waymo_type = 'CustomWaymo'
 waymo_data_root = 'data/waymo_dev1x/kitti_format'
@@ -52,11 +60,25 @@ waymo_train_interval = 1    # 2Hz_part means interval = 5x3
 waymo_val_pkl = 'waymo_infos_val_2Hz_part.pkl'
 waymo_val_interval = 1
 
+lyft_type = 'CustomLyft'
+lyft_data_root = 'data/lyft/'
+lyft_train_pkl = 'lyft_infos_train.pkl' 
+lyft_train_interval = 2
+lyft_val_pkl = 'lyft_infos_val.pkl'
+lyft_val_interval = 2
+
+kitti_type = 'CustomKitti'
+kitti_data_root = 'data/kitti/'
+kitti_train_pkl = 'kitti_infos_train.pkl'
+kitti_train_interval = 1    # 2Hz_part means interval = 5x3
+kitti_val_pkl = 'kitti_infos_val.pkl'
+kitti_val_interval = 1
+
 # load_interval_factor = load_interval_type['part']
 input_modality = dict(use_lidar=False, # True if debug_vis
                       use_camera=True)
-work_dir = './work_dirs_joint/1.00argnuway_no_singapore'
-
+work_dir = './work_dirs_extended/1.50ANWLK_r50'
+resume = True
 argo2_name_map = {
     'REGULAR_VEHICLE': 'Car',
     'LARGE_VEHICLE': 'Car',
@@ -75,6 +97,26 @@ argo2_name_map = {
     'OFFICIAL_SIGNALER': 'Pedestrian',
     'BICYCLE': 'Cyclist',
     'BICYCLIST': 'Cyclist'
+}
+lyft_name_map = {
+    'car': 'Car',
+    'truck': 'Car',
+    'bus': 'Car',
+    'emergency_vehicle': 'Car',
+    'other_vehicle': 'Car',
+    'motorcycle': 'Car',
+    'pedestrian': 'Pedestrian',
+    # 'animal': 'Pedestrian',
+    'bicycle': 'Cyclist'
+}
+kitti_name_map = {
+    'Pedestrian': 'Pedestrian',
+    'Cyclist': 'Cyclist',
+    'Car': 'Car',
+    'Van': 'Car',
+    'Truck': 'Car',
+    'Person_sitting': 'Pedestrian',
+    'Tram': 'Car'
 }
 # model
 img_norm_cfg = dict(mean=[123.675, 116.28, 103.53], 
@@ -270,7 +312,6 @@ nusc_default = dict(
     box_type_3d='LiDAR')
 nusc_train = dict(type=nusc_type,
                  data_root=nusc_data_root,
-                 locations = nusc_locations,
                  ann_file=nusc_train_pkl,
                  pipeline=nusc_train_pipeline,
                  load_interval = nusc_train_interval,
@@ -337,12 +378,117 @@ waymo_val = dict(type=waymo_type,
                  test_mode=True,
                  **waymo_default)
 
-argnuway_train = dict(
+lyft_test_transforms = [
+    dict(type='Resize3D',
+        #  scale=img_size_lyft,
+         scale_factor = img_scale_factor_lyft,
+         keep_ratio=False)
+]
+lyft_pipeline_default = [
+    dict(type='LoadMultiViewImageFromFiles', to_float32=True, num_views=lyft_num_views),
+    dict(type='filename2img_path'),
+    dict(type='LoadAnnotations3D', with_bbox_3d=True, with_label_3d=True, with_attr_label=False),
+    dict(type='ObjectRangeFilter', point_cloud_range=point_cloud_range),
+    dict(type='ObjectNameFilter', classes=lyft_class_names),
+    dict(type='ProjectLabelToWaymoClass', class_names = lyft_class_names, name_map = lyft_name_map),
+]
+lyft_train_pipeline = lyft_pipeline_default + [
+    dict(type='MultiViewWrapper', transforms=[dict(type='PhotoMetricDistortion3D')] + lyft_test_transforms),
+    # dict(type='Ksync',fx = 1034),
+    dict(type='Pack3DDetInputsExtra', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
+]
+lyft_test_pipeline = [dict(type='evalann2ann')] + lyft_pipeline_default + [
+    dict(type='MultiViewWrapper', transforms=lyft_test_transforms),
+    # dict(type='Ksync',fx = 1034),
+    dict(type='Pack3DDetInputsExtra', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
+]
+lyft_data_prefix = dict(pts='v1.01-train/lidar/', 
+                        sweeps='v1.01-train/lidar/',
+                        CAM_FRONT='v1.01-train/images/', 
+                        CAM_FRONT_RIGHT='v1.01-train/images/', 
+                        CAM_FRONT_LEFT='v1.01-train/images/', 
+                        CAM_BACK='v1.01-train/images/', 
+                        CAM_BACK_LEFT='v1.01-train/images/', 
+                        CAM_BACK_RIGHT='v1.01-train/images/')
+
+lyft_default = dict(
+    # load_type='frame_based',
+    modality=input_modality,
+    metainfo=dict(classes=lyft_class_names),
+    data_prefix=lyft_data_prefix,
+    box_type_3d='LiDAR')
+lyft_train = dict(type=lyft_type,
+                 data_root=lyft_data_root,
+                 ann_file=lyft_train_pkl,
+                 pipeline=lyft_train_pipeline,
+                 load_interval = lyft_train_interval,
+                 test_mode=False,
+                 **lyft_default)
+lyft_val = dict(type=lyft_type,
+                data_root=lyft_data_root,
+                ann_file=lyft_val_pkl,
+                pipeline=lyft_test_pipeline,
+                load_interval = lyft_val_interval,
+                test_mode=True,
+                **lyft_default)
+
+kitti_test_transforms = [
+    dict(type='RandomResize3D',
+         scale=img_size_kitti,
+         ratio_range=(1., 1.),
+         keep_ratio=False)
+]
+kitti_pipeline_default = [
+    dict(type='Argo2LoadMultiViewImageFromFiles', flip_front_cam=False, to_float32=True, num_views=kitti_num_views),
+    dict(type='filename2img_path'),
+    dict(type='LoadAnnotations3D', with_bbox_3d=True, with_label_3d=True, with_attr_label=False),
+    dict(type='ObjectRangeFilter', point_cloud_range=point_cloud_range),
+    dict(type='ObjectNameFilter', classes=kitti_class_names),
+    dict(type='ProjectLabelToWaymoClass', class_names = kitti_class_names, name_map = kitti_name_map),
+]
+
+kitti_train_pipeline = kitti_pipeline_default + [
+    dict(type='MultiViewWrapper', transforms=[dict(type='PhotoMetricDistortion3D')] + kitti_test_transforms),
+    dict(type='Pack3DDetInputsExtra', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
+]
+kitti_test_pipeline = [dict(type='evalann2ann')] + kitti_pipeline_default + [
+    dict(type='MultiViewWrapper', transforms=kitti_test_transforms),
+    dict(type='Pack3DDetInputsExtra', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
+]
+
+kitti_data_prefix = dict(
+    pts='training/velodyne',
+    sweeps='training/velodyne',
+    img='training/image_2',)
+
+kitti_default = dict(
+    load_type='frame_based',
+    modality=input_modality,
+    data_prefix=kitti_data_prefix,
+    metainfo=dict(classes=kitti_class_names),
+    default_cam_key='CAM2',
+    box_type_3d='LiDAR')
+kitti_train =dict(type=kitti_type,
+                  data_root=kitti_data_root,
+                  ann_file=kitti_train_pkl,
+                  pipeline=kitti_train_pipeline,
+                  load_interval= kitti_train_interval,
+                  test_mode=False,
+                  **kitti_default)
+kitti_val = dict(type=kitti_type,
+                 data_root=kitti_data_root,
+                 ann_file=kitti_val_pkl,
+                 pipeline=kitti_test_pipeline,
+                 load_interval=kitti_val_interval,
+                 test_mode=True,
+                 **kitti_default)
+
+joint_train = dict(
         type='CustomConcatDataset',
-        datasets=[nusc_train])
-argnuway_val = dict(
+        datasets=[argo2_train, nusc_train, waymo_train, lyft_train, kitti_train])
+joint_val = dict(
         type='CustomConcatDataset',
-        datasets=[argo2_val, nusc_val, waymo_val])
+        datasets=[argo2_val, nusc_val, waymo_val, lyft_val, kitti_val])
 
 dataloader_default = dict(
     batch_size=1,
@@ -352,16 +498,16 @@ dataloader_default = dict(
 train_dataloader = dict(
     **dataloader_default,
     sampler=dict(type='DefaultSampler', shuffle=True),
-    dataset=argnuway_train)
+    dataset=joint_train)
 val_dataloader = dict(
     **dataloader_default,
     sampler=dict(type='DefaultSampler', shuffle=False),
-    dataset=argnuway_val)
+    dataset=joint_val)
 test_dataloader = val_dataloader
 
 val_evaluator = dict(type = 'JointMetric',
                      per_location = True,
-                     brief_metric = True)
+                     brief_metric = False)
 test_evaluator = val_evaluator
 
 # learning rate

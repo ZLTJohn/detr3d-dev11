@@ -222,7 +222,7 @@ class visualizer_zlt():
             corners_cam, mask_corner = sampler.project_ego2cam(corners_pt,
                                                                self.identity_range,
                                                                [img_meta])
-            corners_cam = corners_cam.squeeze()  # num_cam num_gt*8 2
+            corners_cam = corners_cam.squeeze(0)  # num_cam num_gt*8 2
             corners_cam[..., 0] *= w
             corners_cam[..., 1] *= h
             # TODO: a box should be printed out as long as one of 9 is in the image

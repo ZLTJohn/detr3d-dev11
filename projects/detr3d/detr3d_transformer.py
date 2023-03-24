@@ -341,8 +341,9 @@ class Detr3DCrossAtten(BaseModule):
         if self.multi_dataset:
             # enlarge mask and output
             num_img = mask.shape[3]
-            mask_ext = torch.zeros_like(mask[:,:,:,:self.num_cams-num_img, ...])
-            output_ext = torch.zeros_like(output[:,:,:,:self.num_cams-num_img, ...])
+            num_pad = self.num_cams-num_img
+            mask_ext = torch.zeros_like(mask[:,:,:,0:1, ...]).repeat(1,1,1,num_pad,1,1)
+            output_ext = torch.zeros_like(output[:,:,:,0:1, ...]).repeat(1,1,1,num_pad,1,1)
             mask = torch.cat((mask, mask_ext),dim=3)
             output = torch.cat((output,output_ext),dim=3)
 

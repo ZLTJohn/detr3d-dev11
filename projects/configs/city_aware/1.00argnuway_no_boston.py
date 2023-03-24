@@ -43,8 +43,7 @@ nusc_train_interval = 1
 nusc_val_pkl = 'nuscenes_infos_val_part.pkl'
 nusc_val_interval = 1
 nusc_frame2city = 'data/nus_v2/token2citylocation.pkl'
-nusc_locations = ['boston-seaport']
-
+nusc_locations = ['singapore-onenorth','singapore-queenstown','singapore-hollandvillage']
 waymo_type = 'CustomWaymo'
 waymo_data_root = 'data/waymo_dev1x/kitti_format'
 waymo_train_pkl = 'waymo_infos_train_2Hz_part.pkl'
@@ -55,7 +54,7 @@ waymo_val_interval = 1
 # load_interval_factor = load_interval_type['part']
 input_modality = dict(use_lidar=False, # True if debug_vis
                       use_camera=True)
-work_dir = './work_dirs_joint/1.00argnuway_no_singapore'
+work_dir = './work_dirs_joint/1.00argnuway_no_boston'
 
 argo2_name_map = {
     'REGULAR_VEHICLE': 'Car',
@@ -339,7 +338,7 @@ waymo_val = dict(type=waymo_type,
 
 argnuway_train = dict(
         type='CustomConcatDataset',
-        datasets=[nusc_train])
+        datasets=[argo2_train, nusc_train, waymo_train])
 argnuway_val = dict(
         type='CustomConcatDataset',
         datasets=[argo2_val, nusc_val, waymo_val])

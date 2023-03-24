@@ -68,7 +68,7 @@ class CustomWaymoMetric(BaseMetric):
         # or it's about the position of self.results.append()
         for data_sample in data_samples:
             result = dict()
-            result['city_name'] = data_sample['city_name']
+            result['city_name'] = data_sample.get('city_name')
             result['dataset_name'] = data_sample['dataset_name']
             result['pred_instances_3d'] = data_sample['pred_instances_3d']
             result['sample_idx'] = data_sample['sample_idx']
