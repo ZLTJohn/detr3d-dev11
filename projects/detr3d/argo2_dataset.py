@@ -160,6 +160,20 @@ class Argo2Dataset(KittiDataset):
 
         return info
 
+K360CLASSES = ['bicycle', 'box', 'bridge', 'building', 'bus', 'car',
+           'caravan', 'garage', 'lamp', 'motorcycle', 'person', 
+           'pole', 'rider', 'smallpole', 'stop', 'traffic light', 
+           'traffic sign', 'trailer', 'train', 'trash bin', 'truck', 
+           'tunnel', 'unknown construction', 'unknown object', 
+           'unknown vehicle', 'vending machine']
+@DATASETS.register_module()
+class Kitti360Dataset(Argo2Dataset):
+    METAINFO = {'classes': K360CLASSES}
+    def add_dataset_name(self,data_list):
+        for i in data_list:
+            i['dataset_name'] = self.metainfo['dataset']
+            i['city_name'] = 'Germany'
+        return data_list
 
 if __name__ == '__main__':
     from mmdet3d.utils import register_all_modules
