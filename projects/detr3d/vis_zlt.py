@@ -16,6 +16,7 @@ from av2.structures.sweep import Sweep
 from mmdet3d.structures import LiDARInstance3DBoxes
 from mmengine.structures import InstanceData
 from PIL import Image, ImageDraw, ImageFont
+from mmdet3d.structures.bbox_3d.utils import get_lidar2img
 
 from .detr3d_featsampler import DefaultFeatSampler, GeoAwareFeatSampler
 
@@ -131,9 +132,22 @@ class visualizer_zlt():
 
         return self.add_score(gt_instances_3d)
 
-    def visualize(self, instances_3d=None, img_meta=None, img=None, name_suffix=''):
+    def visualize_dataset_item(self, frame, name_suffix=None, dirname=None):
+        batch_data_samples = frame['data_samples']
+        batch_inputs_dict = frame['inputs']
+        batch_input_metas = [batch_data_samples.metainfo]
+        batch_input_metas = self.add_lidar2img(batch_input_metas)
+        batch_gt_instances_3d = [
+            batch_data_samples.gt_instances_3d
+        ]
+        self.visualize(batch_gt_instances_3d, batch_input_metas,
+                        batch_inputs_dict.get('imgs', None),name_suffix,
+                        dirname)
+
+    def visualize(self, instances_3d=None, img_meta=None, img=None, name_suffix='', dirname = None, pause = True):
         # support only one sample once
-        breakpoint()
+        if pause:
+            breakpoint()
         if type(instances_3d) == list:
             instances_3d = instances_3d[0]
         if type(instances_3d) == dict:
@@ -144,7 +158,8 @@ class visualizer_zlt():
         if type(img_paths) != list:
             img_paths = [img_paths]
         self.get_dataset_name(img_meta)
-        dirname = self.get_dir(str(img_meta['sample_idx']))
+        if dirname is None:
+            dirname = self.get_dir(str(img_meta['sample_idx']))
         filename = self.get_name()+name_suffix
 
         if instances_3d is not None:
@@ -405,7 +420,32 @@ class visualizer_zlt():
 
         # Now draw the arrowhead triangle
         draw.polygon([vtx0, vtx1, ptB], fill=color)
+    def add_lidar2img(self, batch_input_metas):
+        """add 'lidar2img' transformation matrix into batch_input_metas.
 
+        Args:
+            batch_input_metas (list[dict]): Meta information of multiple inputs
+                in a batch.
+
+        Returns:
+            batch_input_metas (list[dict]): Meta info with lidar2img added
+        """
+        for meta in batch_input_metas:
+            l2i = list()
+            ori_l2i = list()
+            for i in range(len(meta['cam2img'])):
+                c2i = torch.tensor(meta['cam2img'][i]).double()
+                l2c = torch.tensor(meta['lidar2cam'][i]).double()
+                # l2c_t = l2c[0:3,3:4]
+                # noise = torch.randn_like(l2c_t) *0.1 # -0.2 ~ 0.2
+                # l2c[0:3,3:4] = l2c[0:3,3:4] + l2c_t * noise
+                l2i.append(get_lidar2img(c2i, l2c).float().numpy())
+
+                ori_c2i = torch.tensor(meta['ori_cam2img'][i]).double()
+                ori_l2i.append(get_lidar2img(ori_c2i, l2c).float().numpy())
+            meta['lidar2img'] = l2i
+            meta['ori_lidar2img'] = ori_l2i
+        return batch_input_metas
 
 #             img_ret.append(img_out)
 #         return img_ret

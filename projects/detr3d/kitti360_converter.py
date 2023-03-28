@@ -26,17 +26,26 @@ METAINFO = {
     'dataset': 'kitti-360',
     'info_version': '1.1',
     'version': 'v0.0-trainval'}
+class CustomCameraPerspective(project.CameraPerspective):
+    def projectCenter(self, obj3d, frameId):
+        vertices = obj3d.vertices.copy()
+        vertices = vertices.mean(0,keepdims=True)
+        uv, depth = self.project_vertices(vertices, frameId)
+        obj3d.vertices_proj = uv
+        obj3d.vertices_depth = depth 
 
+# TODO: filter out occluded objects via tracing lidar ray to bbox points
 class kitti360Dataloader(object):
-    def __init__(self, data_root, out_dir = None):
+    def __init__(self, data_root, gt_in_cam_only = True, out_dir = None):
         self.data_root = data_root
+        self.gt_in_cam_only = gt_in_cam_only
         if out_dir is None:
             out_dir = data_root
         self.out_dir = data_root
         self.scenes = os.listdir(self.data_root+'/data_2d_raw')
         self.loaders = []
         for scene in self.scenes:
-            Loader = kitti360Dataloader_OneScene(self.data_root, scene)
+            Loader = kitti360Dataloader_OneScene(self.data_root, scene, gt_in_cam_only = self.gt_in_cam_only)
             self.loaders.append(Loader)
 
     def get_classes(self):
@@ -68,9 +77,10 @@ class kitti360Dataloader(object):
         print('save to',out_name)
 
 class kitti360Dataloader_OneScene(object):
-    def __init__(self, data_root, scene, out_dir = None, cam_ids = [0,1]):# cam_ids must be ascending, must have '0'
+    def __init__(self, data_root, scene, out_dir = None, cam_ids = [0,1], gt_in_cam_only = True, calc_num_lidar_pts=True):# cam_ids must be ascending, must have '0'
         self.kitti360Path = data_root
         self.data_root = data_root
+        self.gt_in_cam_only = gt_in_cam_only
         if out_dir is None:
             out_dir = data_root
         self.out_dir = data_root
@@ -78,8 +88,9 @@ class kitti360Dataloader_OneScene(object):
         self.cam_ids = cam_ids # no fisheye now
         self.cameras = []
         self.class_names = {}
+        self.calc_num_lidar_pts = calc_num_lidar_pts
         for cam_id in cam_ids:
-            self.cameras.append(project.CameraPerspective(self.kitti360Path, 
+            self.cameras.append(CustomCameraPerspective(self.kitti360Path, 
                                                           self.sequence, cam_id))
         # self.kitti360_mono = data.KITTI360(data_root,scene)
         self.label3DBboxPath = osp.join(self.kitti360Path, 'data_3d_bboxes')
@@ -99,9 +110,10 @@ class kitti360Dataloader_OneScene(object):
         # calibration/calib_cam_to_velo.txt
         self.cam0_to_velo = loadCalibrationRigid(osp.join(self.kitti360Path, 
                                 'calibration/calib_cam_to_velo.txt'))
+        # self.cam0_to_velo[:,[1,2]] = self.cam0_to_velo[:,[2,1]]
         self.cam0_to_pose = self.cameras[0].camToPose
         # pt_cam0 = pose_to_cam0 @ cami_to_pose @ pt_cami
-        self.cam_to_cam0 = [self.cam0_to_pose.T @ i.camToPose
+        self.cam_to_cam0 = [np.linalg.inv(self.cam0_to_pose) @ i.camToPose
                                 for i in self.cameras]
         # cam_to_velo = cam0_to_velo @cam_to_cam0
         self.cam2lidar = [
@@ -109,22 +121,25 @@ class kitti360Dataloader_OneScene(object):
                 for cami_to_cam0 in self.cam_to_cam0
         ]
         # velo2pose = cam0_to_pose @ velo_to_cam0
-        self.lidar2ego =self.cam0_to_pose @ self.cam0_to_velo.T
+        self.lidar2ego =self.cam0_to_pose @ np.linalg.inv(self.cam0_to_velo)
         
         self.lidar_dir = osp.join(self.kitti360Path,'data_3d_raw',
                                   self.sequence,'velodyne_points')
         # May miss out some files, but no timestamps are missed
         self.lidar_timestamps = self.loadTimestamps(self.lidar_dir)
-        lidar_files = sorted(os.listdir(osp.join(self.lidar_dir,'data/')))
+        self.lidar_dir = osp.join(self.lidar_dir,'data')
+        lidar_files = sorted(os.listdir(self.lidar_dir))
         self.lidar_files = {}
         for file in lidar_files:
             self.lidar_files[int(file.split('.')[0])] = file
+        print('there are {} pointclouds'.format(len(self.lidar_files)))
 
     def load_images(self,cam_ids):
         self.image_dirs = [osp.join(self.kitti360Path,'data_2d_raw',self.sequence,
                                     "image_0{}".format(id)) for id in cam_ids]
         self.image_timestamps = [self.loadTimestamps(i) for i in self.image_dirs]
-        image_files = [os.listdir(osp.join(i,'data_rect/')) for i in self.image_dirs]
+        self.image_dirs = [osp.join(i,'data_rect') for i in self.image_dirs]
+        image_files = [os.listdir(i) for i in self.image_dirs]
         image_files = [sorted(i) for i in image_files]
         self.image_files = []
         for files in image_files:
@@ -132,6 +147,7 @@ class kitti360Dataloader_OneScene(object):
             for file in files:
                 files_dict[int(file.split('.')[0])] = file
             self.image_files.append(files_dict)
+            print('there are {} images'.format(len(files_dict)))
         
     def parse_anno_to_frame(self):
         object_per_frame = { i:[] for i in self.cameras[0].frames }
@@ -179,7 +195,15 @@ class kitti360Dataloader_OneScene(object):
                 R = curr_pose[:3, :3]
 
                 # convert points from world coordinate to local coordinate 
+                # TODO: filter by 3d range first to speed up
                 vertices_cam0 = cam0.world2cam(vertices_world, R, T, inverse=True)
+                obj_dict['in_image'] = False
+                for cam in self.cameras:
+                    cam.projectCenter(obj, frameID)
+                    u,v = obj.vertices_proj
+                    if (0<u and u<cam.width) and (0<v and v<cam.height):
+                        obj_dict['in_image'] = True
+                        break
                 # centers_cam0 = cam0.world2cam(center_world, R, T, inverse=True)
                 obj2cam0_R = R.T @ obj2world_R
                 obj_dict['obj2cam0_R'] = obj2cam0_R
@@ -214,23 +238,29 @@ class kitti360Dataloader_OneScene(object):
                 image['height'] = cam.height
                 image['width'] = cam.width
                 image['cam2img'] = cam.K[:3,:3]
-                image['lidar2cam'] = self.cam2lidar[idx].T
+                image['lidar2cam'] = np.linalg.inv(self.cam2lidar[idx])
                 image['timestamp'] = self.image_timestamps[idx][ID]
                 images['CAM{}'.format(cam_id)] = image
 
             lidar_points = {}
-            lidar_points['num_pts_feats'] = 11
+            lidar_points['num_pts_feats'] = 4
             lidar_path = osp.join(self.lidar_dir, self.lidar_files[ID])
             lidar_points['lidar_path'] = osp.relpath(lidar_path, self.data_root)
             lidar_points['lidar2ego'] = self.lidar2ego
             lidar_points['timestamp'] = self.lidar_timestamps[ID]
+
+            if self.calc_num_lidar_pts:
+                lidar_pts = np.fromfile(lidar_path, dtype=np.float32).reshape(-1,4)
             
             instances = []
             objs = self.object_per_frame[frameID]
             cam0 = self.cameras[0]
+            objid=0
             for obj_dict in objs:
                 obj = obj_dict['object']
                 if obj.name not in SELECTED_CLASS:
+                    continue
+                if self.gt_in_cam_only and obj_dict['in_image'] == False:
                     continue
                 vertices_cam0 = obj_dict['vertices_cam0']
                 obj2cam0_R = obj_dict['obj2cam0_R']
@@ -253,7 +283,17 @@ class kitti360Dataloader_OneScene(object):
                     print('\n invalid Rot matrix:',obj.name, yaw, pitch, roll)
 
                 bbox_label_3d = CLASSES.index(obj.name)
-                num_lidar_pts = -1  # temporarily not available
+                # if ID == 115:
+                #     breakpoint()
+                if self.calc_num_lidar_pts:
+                    from av2.geometry.geometry import compute_interior_points_mask
+                    Perm = [0,2,3,1,5,7,6,4]    # kitti-360 format to av2 format
+                    vertices_lidar_av2_format = vertices_lidar.T[Perm]
+                    is_interior = compute_interior_points_mask(lidar_pts[:,:3], vertices_lidar_av2_format)
+                    box_pts = lidar_pts[is_interior]
+                    num_lidar_pts = box_pts.shape[0]
+                else:
+                    num_lidar_pts = -1  # temporarily not available
                 instances.append({
                     'bbox_3d': [x, y, z, L, W, H, yaw],
                     'global_id': obj_dict['globalID'],
@@ -261,7 +301,12 @@ class kitti360Dataloader_OneScene(object):
                     'bbox_label_3d': bbox_label_3d,
                     'num_lidar_pts': num_lidar_pts
                 })
+                objid+=1
 
+            if len(instances) == 0:
+                # print('skip frame {} since no gt'.format(frameID))
+                prog_bar.update()
+                continue
             info = {
                 'sample_idx': sample_idx,
                 'log_id': log_id,
@@ -284,10 +329,11 @@ class kitti360Dataloader_OneScene(object):
         mmengine.dump(infos_all, out_name)
         print('saved to', out_name)
 
-loader = kitti360Dataloader('kitti-360')
-loader.make_data_list()
-loader.save()
-breakpoint()
+if __name__ == '__main__':
+    loader = kitti360Dataloader('data/kitti-360')
+    loader.make_data_list()
+    loader.save()
+# breakpoint()
 # scene 0003 has invalid Rot matrix: car -1.621960167967955 -0.019969754133386607 -0.027501106275214935 at frame 261
 
 # info = {

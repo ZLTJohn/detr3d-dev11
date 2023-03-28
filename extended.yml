@@ -1,0 +1,53 @@
+data_size 1.00 A N W
+argoverse2: 41.0% (65.7%/33.9%/23.4%)
+nuscenes: 31.1% (52.2%/31.0%/10.3%)	 
+waymo: 47.0% (62.3%/44.7%/34.0%)	
+
+data_size 1.33 A N W L
+argoverse2: 43.0% (66.9%/35.1%/27.0%)  
+lyft: 43.7% (69.6%/27.6%/34.0%)  
+nuscenes: 33.5% (53.8%/31.1%/15.7%)  
+waymo: 48.2% (63.2%/45.2%/36.2%)  
+# argoverse2_ATX: 42.1% (44.9%/39.9%/41.3%)  argoverse2_DTW: 49.7% (65.5%/38.2%/45.5%)  argoverse2_MIA: 40.5% (65.0%/31.9%/24.5%)  argoverse2_PAO: 43.5% (69.2%/32.0%/29.2%)  argoverse2_PIT: 42.7% (67.2%/37.0%/24.0%)  argoverse2_WDC: 29.1% (59.2%/25.7%/2.4%)  lyft_Palo_Alto: 43.1% (68.1%/27.0%/34.2%)  nuscenes_boston-seaport: 38.2% (54.8%/33.5%/26.2%)  nuscenes_singapore-hollandvillage: 28.5% (48.0%/23.5%/14.1%)  nuscenes_singapore-onenorth: 30.5% (49.6%/28.6%/13.4%)  nuscenes_singapore-queenstown: 27.3% (46.8%/32.7%/2.5%)  waymo_location_other: 42.2% (57.6%/38.7%/30.3%)  waymo_location_phx: 43.7% (58.7%/35.9%/36.6%)  waymo_location_sf: 49.3% (63.3%/46.5%/37.9%)
+
+data_size 1.50 A N W L K360
+argoverse2: 43.1% (67.3%/35.0%/27.1%)  
+kitti-360: 19.1% (30.3%/14.5%/12.5%)  
+lyft: 44.2% (69.5%/27.9%/35.2%)  
+nuscenes: 33.2% (54.8%/31.0%/13.8%)  
+waymo: 48.2% (63.4%/45.3%/35.8%)  
+
+# argoverse2_ATX: 37.9% (49.5%/35.8%/28.6%)  argoverse2_DTW: 48.6% (67.6%/40.6%/37.6%)  argoverse2_MIA: 40.2% (68.0%/33.5%/19.3%)  argoverse2_PAO: 45.6% (69.2%/35.3%/32.3%)  argoverse2_PIT: 46.9% (70.2%/36.3%/34.2%)  argoverse2_WDC: 31.0% (62.4%/25.7%/4.9%)  kitti-360_2013_05_28_drive_0000_sync: 27.9% (31.3%/27.7%/24.8%)  kitti-360_2013_05_28_drive_0002_sync: 31.9% (46.2%/49.5%/0.0%)  kitti-360_2013_05_28_drive_0003_sync: 12.5% (37.5%/0.0%/0.0%)  kitti-360_2013_05_28_drive_0004_sync: 29.4% (19.0%/37.3%/31.9%)  kitti-360_2013_05_28_drive_0005_sync: 10.3% (22.9%/0.0%/7.9%)  kitti-360_2013_05_28_drive_0006_sync: 27.6% (44.6%/20.8%/17.3%)  kitti-360_2013_05_28_drive_0007_sync: 30.3% (90.9%/0.0%/0.0%)  kitti-360_2013_05_28_drive_0009_sync: 12.8% (9.5%/11.6%/17.2%)  kitti-360_2013_05_28_drive_0010_sync: 18.7% (46.5%/4.9%/4.8%)  lyft_Palo_Alto: 44.2% (69.5%/27.9%/35.2%)  nuscenes_boston-seaport: 38.7% (57.7%/33.7%/24.6%)  nuscenes_singapore-hollandvillage: 23.8% (47.9%/19.7%/3.8%)  nuscenes_singapore-onenorth: 30.2% (50.2%/29.4%/11.1%)  nuscenes_singapore-queenstown: 26.4% (47.9%/30.1%/1.2%)  waymo_location_other: 45.0% (60.6%/35.2%/39.2%)  waymo_location_phx: 42.8% (60.0%/36.5%/31.8%)  waymo_location_sf: 50.8% (65.8%/47.5%/39.0%)
+
+data_size 1.50 A N W L K
+argoverse2: 42.3% (67.2%/34.0%/25.6%)  
+kitti: 50.6% (72.4%/42.4%/37.0%)  
+lyft: 42.5% (69.3%/26.6%/31.6%)  
+nuscenes: 33.1% (53.8%/31.8%/13.8%)  
+waymo: 48.4% (63.1%/45.5%/36.5%) 
+#  argoverse2_ATX: 37.9% (47.3%/32.8%/33.6%)  argoverse2_DTW: 51.3% (68.9%/39.1%/46.0%)  argoverse2_MIA: 40.2% (67.5%/32.3%/20.8%)  argoverse2_PAO: 41.2% (69.5%/35.4%/18.5%)  argoverse2_PIT: 46.5% (70.2%/35.8%/33.6%)  argoverse2_WDC: 30.4% (62.2%/24.2%/4.9%)  kitti_Germany: 50.6% (72.4%/42.4%/37.0%)  lyft_Palo_Alto: 42.5% (69.3%/26.6%/31.6%)  nuscenes_boston-seaport: 38.9% (56.5%/34.5%/25.6%)  nuscenes_singapore-hollandvillage: 24.3% (46.9%/21.7%/4.4%)  nuscenes_singapore-onenorth: 30.0% (50.6%/29.6%/9.9%)  nuscenes_singapore-queenstown: 27.2% (46.3%/33.9%/1.3%)  waymo_location_other: 42.8% (59.4%/38.5%/30.6%)  waymo_location_phx: 44.3% (60.5%/37.5%/34.9%)  waymo_location_sf: 51.0% (65.1%/47.3%/40.7%) 
+
+
+data_size 1.83 A N W L K K360
+argoverse2: 43.2% (68.1%/34.8%/26.8%)  
+kitti: 51.3% (72.5%/40.2%/41.1%)  
+kitti-360: 22.2% (33.1%/16.2%/17.1%)  
+lyft: 42.7% (70.0%/25.8%/32.1%) 
+nuscenes: 34.1% (54.7%/31.9%/15.6%)  
+waymo: 48.3% (63.4%/44.6%/36.7%)  
+ 
+
+#  argoverse2_ATX: 44.0% (50.3%/36.5%/45.1%)  argoverse2_DTW: 51.1% (67.9%/39.4%/45.9%)  
+#  argoverse2_MIA: 42.4% (68.8%/33.7%/24.6%)  argoverse2_PAO: 42.9% (72.0%/33.3%/23.3%)  
+#  argoverse2_PIT: 46.3% (71.2%/35.9%/31.8%)  argoverse2_WDC: 31.0% (62.5%/26.4%/4.1%)  
+#  kitti_Germany: 51.3% (72.5%/40.2%/41.1%)  
+# kitti-360_2013_05_28_drive_0000_sync: 29.4% (33.2%/30.5%/24.5%)  
+# kitti-360_2013_05_28_drive_0002_sync: 28.5% (44.4%/41.1%/0.0%)  
+# kitti-360_2013_05_28_drive_0003_sync: 12.5% (37.5%/0.0%/0.0%)  
+# kitti-360_2013_05_28_drive_0004_sync: 24.5% (16.6%/26.6%/30.3%)  
+# kitti-360_2013_05_28_drive_0005_sync: 14.7% (20.5%/0.0%/23.5%)  
+# kitti-360_2013_05_28_drive_0006_sync: 30.7% (44.1%/27.3%/20.8%)  
+# kitti-360_2013_05_28_drive_0007_sync: 30.2% (90.6%/0.0%/0.0%)  
+# kitti-360_2013_05_28_drive_0009_sync: 18.8% (11.1%/13.5%/31.9%)  
+# kitti-360_2013_05_28_drive_0010_sync: 20.5% (48.9%/5.2%/7.5%)  
+# lyft_Palo_Alto: 42.7% (70.0%/25.8%/32.1%)  nuscenes_boston-seaport: 40.1% (57.3%/33.6%/29.5%)  nuscenes_singapore-hollandvillage: 29.1% (49.6%/37.0%/0.7%)  nuscenes_singapore-onenorth: 30.9% (51.3%/30.5%/10.9%)  nuscenes_singapore-queenstown: 28.4% (47.4%/34.1%/3.7%)  waymo_location_other: 43.3% (58.9%/36.7%/34.3%)  waymo_location_phx: 43.3% (60.3%/34.7%/34.9%)  waymo_location_sf: 50.8% (65.9%/46.9%/39.6%)

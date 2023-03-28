@@ -68,7 +68,7 @@ class Argo2Dataset(KittiDataset):
         if ann_info == None:
             return None
         filtered_annotations = {}
-        filter_mask = ann_info['num_lidar_pts'] > 0
+        filter_mask = ((ann_info['num_lidar_pts'] > 0) | (ann_info['num_lidar_pts'] == -1))
         for key in ann_info.keys():
             if key != 'instances':
                 filtered_annotations[key] = (ann_info[key][filter_mask])
@@ -169,10 +169,20 @@ K360CLASSES = ['bicycle', 'box', 'bridge', 'building', 'bus', 'car',
 @DATASETS.register_module()
 class Kitti360Dataset(Argo2Dataset):
     METAINFO = {'classes': K360CLASSES}
+
+    def __init__(self, **kwargs):
+        self.used_cams = kwargs.pop('used_cams',None)
+        super().__init__(**kwargs)
+
     def add_dataset_name(self,data_list):
         for i in data_list:
             i['dataset_name'] = self.metainfo['dataset']
-            i['city_name'] = 'Germany'
+            i['city_name'] = i['log_id']
+            if self.used_cams is not None:
+                keys = list(i['images'].keys())
+                for k in keys:
+                    if k not in self.used_cams:
+                        i['images'].pop(k)
         return data_list
 
 if __name__ == '__main__':

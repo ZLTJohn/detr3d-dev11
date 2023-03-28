@@ -125,9 +125,12 @@ class DETR3D(MVXTwoStageDetector):
             # double forward with checkpoint
             # see https://discuss.pytorch.org/t/ddp-and-gradient-checkpointing/132244
             # could also be solved by upgrade pytorch>1.9
-            imgs_feats = self.extract_img_feat(imgs[:,1: ,...])
-            img_feats = [torch.cat(x0xs, dim=1) 
-                            for x0xs in zip(img0_feats, imgs_feats)]
+            if imgs.shape[1] > 1:
+                imgs_feats = self.extract_img_feat(imgs[:,1: ,...])
+                img_feats = [torch.cat(x0xs, dim=1) 
+                                for x0xs in zip(img0_feats, imgs_feats)]
+            else:
+                img_feats = img0_feats
         else:
             img_feats = self.extract_img_feat(imgs, batch_input_metas)
         return img_feats
