@@ -234,12 +234,16 @@ class Waymo_Evaluator_native(Waymo_Evaluator):
 class JointMetric(CustomWaymoMetric):
     def __init__(self, 
                  per_location = False, 
-                 brief_metric = False, 
+                 brief_metric = False,
+                 brief_split = False,
+                 work_dir = None,
                  **kwargs):
         super().__init__(**kwargs)
         self.prefix = None
         self.per_location = per_location
         self.brief_metric = brief_metric
+        self.brief_split = brief_split
+        self.work_dir = work_dir
         self.target = [
             'OBJECT_TYPE_ALL_NS_LEVEL_2/LET-mAP',
             'OBJECT_TYPE_TYPE_VEHICLE_LEVEL_2/LET-mAP',
@@ -310,11 +314,17 @@ class JointMetric(CustomWaymoMetric):
             metrics = super().compute_metrics(results_split[dataset_type])
             brief_metric[dataset_type]=self.format_result(metrics)
             frame_num[dataset_type]=len(results_split[dataset_type])
-            for k, v in metrics.items():
-                all_metrics[dataset_type+'/'+k] = float(v)
+            if not(self.brief_split and '_' in dataset_type):
+                for k, v in metrics.items():
+                    all_metrics[dataset_type+'/'+k] = float(v)
+        if self.work_dir:
+            with open(osp.join(self.work_dir, 'brief_metric.txt'),'w') as f:
+                for i in brief_metric:
+                    print('{}: {}\t {}'.format(i,brief_metric[i],frame_num[i]))
 
         for i in brief_metric:
             print('{}: {}\t {}'.format(i,brief_metric[i],frame_num[i]))
+        
         if not self.brief_metric:
             brief_metric.update(all_metrics)
         # else:
