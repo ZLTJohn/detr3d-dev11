@@ -21,9 +21,9 @@ K360_class_names = ['bicycle', 'box', 'bridge', 'building', 'bus', 'car',
 waymo_class_names = ['Car', 'Pedestrian', 'Cyclist']
 
 num_class = 3
-# K360_num_views = 2
-K360_num_views = 1
-K360_selected_cam = 'CAM0'
+K360_num_views = 2
+# K360_num_views = 1
+# K360_selected_cam = 'CAM0'
 argo2_num_views = 7
 img_size_K360 = (1408, 376)
 evaluation_interval = 12 # epochs
@@ -38,7 +38,7 @@ K360_val_interval = 1
 # load_interval_factor = load_interval_type['part']
 input_modality = dict(use_lidar=True, # True if debug_vis
                       use_camera=True)
-work_dir = './work_dirs_extended/debug_kitti360'
+work_dir = './work_dirs_extended/debug_kitti360_doublefront'
 K360_name_map = {
     'person': 'Pedestrian',
     'bicycle': 'Cyclist',
@@ -172,6 +172,7 @@ K360_pipeline_default = [
     dict(type='ObjectNameFilter', classes=K360_class_names),
     dict(type='ProjectLabelToWaymoClass', class_names = K360_class_names, name_map = K360_name_map),
 ]
+
 K360_train_pipeline = K360_pipeline_default + [
     dict(type='MultiViewWrapper', transforms=[dict(type='PhotoMetricDistortion3D')] + K360_test_transforms),
     dict(type='Pack3DDetInputsExtra', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
@@ -182,18 +183,20 @@ K360_test_pipeline = [dict(type='evalann2ann')] + K360_pipeline_default + [
 ]
 
 K360_data_prefix = dict()
+
 K360_default = dict(
     load_type='frame_based',
     modality=input_modality,
     data_prefix=K360_data_prefix,
     metainfo=dict(classes=K360_class_names),
     box_type_3d='LiDAR')
+
 K360_train =dict(type=K360_type,
                   data_root=K360_data_root,
                   ann_file=K360_train_pkl,
                   pipeline=K360_train_pipeline,
                   load_interval= K360_train_interval,
-                  used_cams = K360_selected_cam,
+                #   used_cams = K360_selected_cam,
                   test_mode=False,
                   **K360_default)
 K360_val = dict(type=K360_type,
@@ -201,7 +204,7 @@ K360_val = dict(type=K360_type,
                  ann_file=K360_val_pkl,
                  pipeline=K360_test_pipeline,
                  load_interval=K360_val_interval,
-                 used_cams = K360_selected_cam,
+                #  used_cams = K360_selected_cam,
                  test_mode=True,
                  **K360_default)
 
