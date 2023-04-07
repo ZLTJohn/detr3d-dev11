@@ -6,7 +6,7 @@ from mmdet3d.registry import MODELS
 from mmdet3d.structures import Det3DDataSample
 from mmdet3d.structures.bbox_3d.utils import get_lidar2img
 from torch import Tensor
-
+import torch.nn as nn
 from .grid_mask import GridMask
 from .vis_zlt import visualizer_zlt
 
@@ -43,6 +43,7 @@ class DETR3D(MVXTwoStageDetector):
                  train_cfg=None,
                  test_cfg=None,
                  pretrained=None,
+                 dataset_emb=None,
                  debug_vis_cfg=None):
         # BUG: backbone: The model and loaded state dict do not match exactly
         # layer3.0.conv2.conv_offset.weight, layer3.0.conv2.conv_offset.bias ...
@@ -65,6 +66,18 @@ class DETR3D(MVXTwoStageDetector):
         else:
             self.vis = None
         self.last_time = 0
+        if dataset_emb is not None:
+            self.dataset_embed = nn.Embedding(dataset_emb, self.pts_bbox_head.embed_dims)
+            self.ds_map={
+                'argoverse2': 0,
+                'kitti': 1,
+                'kitti-360': 2,
+                'lyft': 3,
+                'nuscenes': 4,
+                'waymo': 5
+            }
+        else: 
+            self.dataset_embed = None
 
     def extract_img_feat(self, img: Tensor,
                          batch_input_metas: List[dict] = None) -> List[Tensor]:
@@ -133,6 +146,12 @@ class DETR3D(MVXTwoStageDetector):
                 img_feats = img0_feats
         else:
             img_feats = self.extract_img_feat(imgs, batch_input_metas)
+        # add dataset embeddings
+        if self.dataset_embed is not None:
+            dataset = img_feats[0].new_tensor(self.ds_map[batch_input_metas[0]['dataset_name']],dtype=int)
+            emb = self.dataset_embed(dataset).reshape(1,1,-1,1,1)
+            for img_feat in img_feats:
+                img_feat = img_feat + emb
         return img_feats
 
     def _forward(self):
@@ -291,14 +310,13 @@ import torch.nn.functional as F
 class debugDETR3D(DETR3D):
     def extract_feat(self, batch_inputs_dict: Dict, batch_input_metas: List[dict]) -> List[Tensor]:
         feats = super().extract_feat(batch_inputs_dict, batch_input_metas)
-        feats = rescale_feats(feats)
+        feats = self.rescale_feats(feats, batch_input_metas[0]['ksync_factor'][0])
         return feats
         
-def rescale_feats(feats):
-    scale = 1.635
-    ret = []
-    for i in range(len(feats)):
-        feat = feats[i]
-        B,N,C,H,W = feat.shape
-        ret.append(F.interpolate(feat.view(-1,C,H,W),scale_factor=scale).unsqueeze(0))
-    return ret
+    def rescale_feats(self,feats, scale):
+        ret = []
+        for i in range(len(feats)):
+            feat = feats[i]
+            B,N,C,H,W = feat.shape
+            ret.append(F.interpolate(feat.view(-1,C,H,W),scale_factor=scale).unsqueeze(0))
+        return ret

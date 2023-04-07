@@ -130,7 +130,7 @@ class CustomWaymo(WaymoDataset):
 
     def load_data_list(self) -> List[dict]:
         """Add the load interval."""
-        data_list = super().load_data_list()
+        data_list = super(WaymoDataset,self).load_data_list()
         data_list = data_list[::self.load_interval]
         data_list = self.add_dataset_name(data_list)
         if self.locations is not None:

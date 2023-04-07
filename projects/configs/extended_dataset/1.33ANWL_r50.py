@@ -433,7 +433,7 @@ train_dataloader = dict(
 val_dataloader = dict(
     **dataloader_default,
     sampler=dict(type='DefaultSampler', shuffle=False),
-    dataset=joint_val)
+    dataset=lyft_val)
 test_dataloader = val_dataloader
 
 val_evaluator = dict(type = 'JointMetric',

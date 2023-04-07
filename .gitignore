@@ -10,3 +10,4 @@ tmp*
 projects/detr3d/debug_cfg.py
 gt_label_stat.ipynb
 projects/detr3d/debug.py
+projects/h3d_dataloader

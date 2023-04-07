@@ -244,6 +244,11 @@ class JointMetric(CustomWaymoMetric):
         self.brief_metric = brief_metric
         self.brief_split = brief_split
         self.work_dir = work_dir
+        if work_dir is not None:
+            self.brief_metric_file = open(osp.join(self.work_dir, 'brief_metric.txt'),'w')
+        else:
+            self.brief_metric_file = None
+
         self.target = [
             'OBJECT_TYPE_ALL_NS_LEVEL_2/LET-mAP',
             'OBJECT_TYPE_TYPE_VEHICLE_LEVEL_2/LET-mAP',
@@ -317,10 +322,11 @@ class JointMetric(CustomWaymoMetric):
             if not(self.brief_split and '_' in dataset_type):
                 for k, v in metrics.items():
                     all_metrics[dataset_type+'/'+k] = float(v)
-        if self.work_dir is not None:
-            with open(osp.join(self.work_dir, 'brief_metric.txt'),'w') as f:
-                for i in brief_metric:
-                    print('{}: {}\t {}'.format(i,brief_metric[i],frame_num[i]))
+
+        if self.brief_metric_file is not None:
+            print('--------------------------', file=self.brief_metric_file)
+            for i in brief_metric:
+                print('{}: {}\t {}'.format(i,brief_metric[i],frame_num[i]),file=self.brief_metric_file)
 
         for i in brief_metric:
             print('{}: {}\t {}'.format(i,brief_metric[i],frame_num[i]))

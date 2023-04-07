@@ -44,10 +44,10 @@ kitti_num_views = 1
 K360_num_views = 1
 
 K360_selected_cam = 'CAM0'
-img_size_argo2 = (1024,800)
-img_size_nusc = (800, 450)
-img_size_waymo = (960, 640)
-img_scale_factor_lyft = 0.5
+img_size_argo2 = (2048,1600)
+img_size_nusc = (1600, 900)
+img_size_waymo = (1920, 1280)
+img_scale_factor_lyft = 1.0
 img_size_kitti = (1242, 375)
 img_size_K360 = (1408, 376)
 # img_size_lyft = (1920,1080) and (1224,1024)
@@ -55,50 +55,50 @@ evaluation_interval = 12 # epochs
 # load_from = 'ckpts/'
 argo2_type = 'Argo2Dataset'
 argo2_data_root = 'data/argo2/'
-argo2_train_pkl = 'debug_val_mono_front.pkl'  
-argo2_train_interval = 4    # 2Hz_part means interval = 5x3
-argo2_val_pkl = 'debug_val_mono_front.pkl'
-argo2_val_interval = 4
+argo2_train_pkl = 'argo2_infos_train_2Hz_mono_front.pkl'  
+argo2_train_interval = 1    # 2Hz_part means interval = 5x3
+argo2_val_pkl = 'argo2_infos_val_2Hz_part_mono_front.pkl'
+argo2_val_interval = 1
 
 nusc_type = 'CustomNusc'
 nusc_data_root = 'data/nus_v2/'
-nusc_train_pkl = 'debug_val_mono_front.pkl' 
+nusc_train_pkl = 'nuscenes_infos_train_mono_front.pkl' 
 nusc_train_interval = 1
-nusc_val_pkl = 'debug_val_mono_front.pkl'
+nusc_val_pkl = 'nuscenes_infos_val_part_mono_front.pkl'
 nusc_val_interval = 1
 
 waymo_type = 'CustomWaymo'
 waymo_data_root = 'data/waymo_dev1x/kitti_format'
-waymo_train_pkl = 'debug_val_mono_front.pkl'
-waymo_train_interval = 9    # 2Hz_part means interval = 5x3
-waymo_val_pkl = 'debug_val_mono_front.pkl'
-waymo_val_interval = 9
+waymo_train_pkl = 'waymo_infos_train_2Hz_mono_front.pkl'
+waymo_train_interval = 1    # 2Hz_part means interval = 5x3
+waymo_val_pkl = 'waymo_infos_val_2Hz_part_mono_front.pkl'
+waymo_val_interval = 1
 
 lyft_type = 'CustomLyft'
 lyft_data_root = 'data/lyft/'
-lyft_train_pkl = 'debug_val_mono_front.pkl' 
-lyft_train_interval = 4
-lyft_val_pkl = 'debug_val_mono_front.pkl'
-lyft_val_interval = 4
+lyft_train_pkl = 'lyft_infos_train_mono_front.pkl' 
+lyft_train_interval = 1
+lyft_val_pkl = 'lyft_infos_val_mono_front.pkl'
+lyft_val_interval = 2
 
 kitti_type = 'CustomKitti'
 kitti_data_root = 'data/kitti/'
 kitti_train_pkl = 'kitti_infos_train.pkl'
-kitti_train_interval = 100
+kitti_train_interval = 1
 kitti_val_pkl = 'kitti_infos_val.pkl'
 kitti_val_interval = 1
 
 K360_type = 'Kitti360Dataset'
 K360_data_root = 'data/kitti-360/'
 K360_train_pkl = 'kitti360_infos_train.pkl' # 40000 frame
-K360_train_interval = 1000
+K360_train_interval = 1
 K360_val_pkl = 'kitti360_infos_val.pkl' # 10000 frame
-K360_val_interval = 200
-focal_length = 2070
+K360_val_interval = 5
+
 # load_interval_factor = load_interval_type['part']
 input_modality = dict(use_lidar=True, # True if debug_vis
                       use_camera=True)
-# work_dir = './work_dirs_extended/1.83ANWLKK360_front_r50_newpc'
+work_dir = './work_dirs_extended/3.00ANW_front_r50_fullres'
 resume = True
 argo2_name_map = {
     'REGULAR_VEHICLE': 'Car',
@@ -159,13 +159,13 @@ img_norm_cfg = dict(mean=[123.675, 116.28, 103.53],
 debug_vis_cfg = dict(debug_dir='debug/visualization',
                      gt_range=[0, 105],
                      pc_range=point_cloud_range,
-                     vis_count=200,
-                     debug_name='mono_Ksync')
+                     vis_count=20,
+                     debug_name='mono_debug')
 # model_wrapper_cfg = dict(type = 'CustomMMDDP', static_graph = True)
 model = dict(
     type='DETR3D',
     use_grid_mask=True,
-    debug_vis_cfg=debug_vis_cfg,
+    # debug_vis_cfg=debug_vis_cfg,
     data_preprocessor=dict(type='Det3DDataPreprocessor',
                            **img_norm_cfg,
                            pad_size_divisor=32),
@@ -268,16 +268,14 @@ argo2_pipeline_default = [
     dict(type='LoadAnnotations3D', with_bbox_3d=True, with_label_3d=True, with_attr_label=False),
     dict(type='ObjectRangeFilter', point_cloud_range=point_cloud_range),
     dict(type='ObjectNameFilter', classes=argo2_class_names), # Deprecated now
-    dict(type='EgoTranslate', trans = 'FrontCam'),
     dict(type='ProjectLabelToWaymoClass', class_names = argo2_class_names, name_map = argo2_name_map),
-    dict(type='MultiViewWrapper', transforms=argo2_test_transforms),
-    dict(type='Ksync',fx = focal_length),
 ]
 argo2_train_pipeline = argo2_pipeline_default + [
-    dict(type='MultiViewWrapper', transforms=[dict(type='PhotoMetricDistortion3D')]),
+    dict(type='MultiViewWrapper', transforms=[dict(type='PhotoMetricDistortion3D')] + argo2_test_transforms),
     dict(type='Pack3DDetInputsExtra', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
 ]
 argo2_test_pipeline = [dict(type='evalann2ann')] + argo2_pipeline_default + [
+    dict(type='MultiViewWrapper', transforms=argo2_test_transforms),
     dict(type='Pack3DDetInputsExtra', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
 ]
 
@@ -317,16 +315,14 @@ nusc_pipeline_default = [
     dict(type='ObjectNameFilter', classes=nusc_class_names),
     dict(type='RotateScene_neg90'),
     dict(type='ObjectRangeFilter', point_cloud_range=point_cloud_range),
-    dict(type='EgoTranslate', trans = 'FrontCam'),
     dict(type='ProjectLabelToWaymoClass', class_names = nusc_class_names),
-    dict(type='MultiViewWrapper', transforms=nusc_test_transforms),
-    dict(type='Ksync',fx = focal_length),
 ]
 nusc_train_pipeline = nusc_pipeline_default + [
-    dict(type='MultiViewWrapper', transforms=[dict(type='PhotoMetricDistortion3D')]),
+    dict(type='MultiViewWrapper', transforms=[dict(type='PhotoMetricDistortion3D')] + nusc_test_transforms),
     dict(type='Pack3DDetInputsExtra', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
 ]
 nusc_test_pipeline = [dict(type='evalann2ann')] + nusc_pipeline_default + [
+    dict(type='MultiViewWrapper', transforms=nusc_test_transforms),
     dict(type='Pack3DDetInputsExtra', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
 ]
 
@@ -373,17 +369,15 @@ waymo_pipeline_default = [
     dict(type='filename2img_path'),
     dict(type='LoadAnnotations3D', with_bbox_3d=True, with_label_3d=True, with_attr_label=False),
     dict(type='ObjectRangeFilter', point_cloud_range=point_cloud_range),
-    dict(type='EgoTranslate', trans = 'FrontCam'),
     dict(type='ObjectNameFilter', classes=waymo_class_names),
-    dict(type='MultiViewWrapper', transforms=waymo_test_transforms),
-    dict(type='Ksync',fx = focal_length),
 ]
 
 waymo_train_pipeline = waymo_pipeline_default + [
-    dict(type='MultiViewWrapper', transforms=[dict(type='PhotoMetricDistortion3D')]),
+    dict(type='MultiViewWrapper', transforms=[dict(type='PhotoMetricDistortion3D')] + waymo_test_transforms),
     dict(type='Pack3DDetInputsExtra', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
 ]
 waymo_test_pipeline = [dict(type='evalann2ann')] + waymo_pipeline_default + [
+    dict(type='MultiViewWrapper', transforms=waymo_test_transforms),
     dict(type='Pack3DDetInputsExtra', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
 ]
 
@@ -430,18 +424,16 @@ lyft_pipeline_default = [
     dict(type='ObjectNameFilter', classes=lyft_class_names),
     dict(type='RotateScene_neg90'),
     dict(type='RotateScene_neg90'),
-    dict(type='EgoTranslate', trans = 'FrontCam'),
     dict(type='ObjectRangeFilter', point_cloud_range=point_cloud_range),
     dict(type='ProjectLabelToWaymoClass', class_names = lyft_class_names, name_map = lyft_name_map),
-    dict(type='MultiViewWrapper', transforms=lyft_test_transforms),
-    dict(type='Ksync',fx = focal_length),
 ]
 lyft_train_pipeline = lyft_pipeline_default + [
-    dict(type='MultiViewWrapper', transforms=[dict(type='PhotoMetricDistortion3D')]),
+    dict(type='MultiViewWrapper', transforms=[dict(type='PhotoMetricDistortion3D')] + lyft_test_transforms),
     # dict(type='Ksync',fx = 1034),
     dict(type='Pack3DDetInputsExtra', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
 ]
 lyft_test_pipeline = [dict(type='evalann2ann')] + lyft_pipeline_default + [
+    dict(type='MultiViewWrapper', transforms=lyft_test_transforms),
     # dict(type='Ksync',fx = 1034),
     dict(type='Pack3DDetInputsExtra', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
 ]
@@ -487,17 +479,15 @@ kitti_pipeline_default = [
     dict(type='LoadAnnotations3D', with_bbox_3d=True, with_label_3d=True, with_attr_label=False),
     dict(type='ObjectRangeFilter', point_cloud_range=point_cloud_range),
     dict(type='ObjectNameFilter', classes=kitti_class_names),
-    dict(type='EgoTranslate', trans = 'FrontCam'),
     dict(type='ProjectLabelToWaymoClass', class_names = kitti_class_names, name_map = kitti_name_map),
-    dict(type='MultiViewWrapper', transforms=kitti_test_transforms),
-    dict(type='Ksync',fx = focal_length),
 ]
 
 kitti_train_pipeline = kitti_pipeline_default + [
-    dict(type='MultiViewWrapper', transforms=[dict(type='PhotoMetricDistortion3D')]),
+    dict(type='MultiViewWrapper', transforms=[dict(type='PhotoMetricDistortion3D')] + kitti_test_transforms),
     dict(type='Pack3DDetInputsExtra', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
 ]
 kitti_test_pipeline = [dict(type='evalann2ann')] + kitti_pipeline_default + [
+    dict(type='MultiViewWrapper', transforms=kitti_test_transforms),
     dict(type='Pack3DDetInputsExtra', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
 ]
 
@@ -540,16 +530,14 @@ K360_pipeline_default = [
     dict(type='LoadAnnotations3D', with_bbox_3d=True, with_label_3d=True, with_attr_label=False),
     dict(type='ObjectRangeFilter', point_cloud_range=point_cloud_range),
     dict(type='ObjectNameFilter', classes=K360_class_names),
-    dict(type='EgoTranslate', trans = 'FrontCam'),
     dict(type='ProjectLabelToWaymoClass', class_names = K360_class_names, name_map = K360_name_map),
-    dict(type='MultiViewWrapper', transforms=K360_test_transforms),
-    dict(type='Ksync',fx = focal_length),
 ]
 K360_train_pipeline = K360_pipeline_default + [
-    dict(type='MultiViewWrapper', transforms=[dict(type='PhotoMetricDistortion3D')]),
+    dict(type='MultiViewWrapper', transforms=[dict(type='PhotoMetricDistortion3D')] + K360_test_transforms),
     dict(type='Pack3DDetInputsExtra', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
 ]
 K360_test_pipeline = [dict(type='evalann2ann')] + K360_pipeline_default + [
+    dict(type='MultiViewWrapper', transforms=K360_test_transforms),
     dict(type='Pack3DDetInputsExtra', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
 ]
 K360_data_prefix = dict()
@@ -579,8 +567,7 @@ K360_val = dict(type=K360_type,
 
 joint_train = dict(
         type='CustomConcatDataset',
-        datasets=[argo2_train, nusc_train, waymo_train, 
-                  lyft_train, kitti_train, K360_train])
+        datasets=[argo2_train, nusc_train, waymo_train])
 joint_val = dict(
         type='CustomConcatDataset',
         datasets=[argo2_val, nusc_val, waymo_val, 
@@ -588,13 +575,13 @@ joint_val = dict(
 
 dataloader_default = dict(
     batch_size=1,
-    num_workers=0,
-    persistent_workers=False,
+    num_workers=4,
+    persistent_workers=True,
     drop_last=False)
 train_dataloader = dict(
     **dataloader_default,
     sampler=dict(type='DefaultSampler', shuffle=True),
-    dataset=K360_train)
+    dataset=joint_train)
 val_dataloader = dict(
     **dataloader_default,
     sampler=dict(type='DefaultSampler', shuffle=False),
@@ -603,7 +590,8 @@ test_dataloader = val_dataloader
 
 val_evaluator = dict(type = 'JointMetric',
                      per_location = True,
-                     brief_metric = False)
+                     work_dir = work_dir,
+                     brief_split = True)
 test_evaluator = val_evaluator
 
 # learning rate

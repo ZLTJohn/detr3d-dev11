@@ -28,6 +28,7 @@ class Pack3DDetInputsExtra(Pack3DDetInputs):
             'timestamp',
             'token',
             'num_pts_feats',
+            'ksync_factor',
         ]
         super().__init__(**kwargs)
         self.meta_keys = tuple(list(self.meta_keys)+extra_keys)
@@ -47,21 +48,31 @@ class evalann2ann:
 from mmdet3d.datasets.transforms.transforms_3d import Resize3D, MultiViewWrapper
 @TRANSFORMS.register_module()
 class Ksync:
-    def __init__(self, fx = -1, fy = -1):
+    def __init__(self, fx = -1, fy = -1, dont_resize = False):
         self.resize3d = MultiViewWrapper(transforms = [Resize3D(scale_factor = (1.0, 1.0))])
+        self.dont_resize = dont_resize
         self.fx = fx
         self.fy = fy
     
     def __call__(self, results):
         K = results['cam2img'][0]
-        fx = K[0][0]
-        fy = K[1][1]
+        flip = results.get('flip')
+        if flip is not None and flip[0] is True:
+            fx = K[0][1]
+            fy = K[1][0]
+        else:
+            fx = K[0][0]
+            fy = K[1][1]
         scalex = self.fx / fx
         scaley = self.fy / fy
         if self.fy==-1:
             scaley = scalex
         self.resize3d.transforms.transforms[0].scale_factor = (scalex, scaley)
-        return self.resize3d(results)
+        results['ksync_factor'] = (scalex, scaley)
+        if self.dont_resize:
+            return results
+        else:
+            return self.resize3d(results)
 
 
 from mmcv.image.geometric import _scale_size
@@ -184,7 +195,7 @@ class EgoTranslate:
 
     def __call__(self, results):
         # support nusc only
-        if self.eval:
+        if self.eval and self.trans == None:
             scene_token = self.get_scene_token(results)
             random.seed(scene_token)
         if self.trans is None:
@@ -193,6 +204,8 @@ class EgoTranslate:
             y = random.random() * (Y1 - Y0) + Y0
             z = random.random() * (Z1 - Z0) + Z0
             t = np.array([x,y,z])
+        elif self.trans == 'FrontCam':
+            t = np.linalg.inv(results['lidar2cam'])[0][:3,3]
         else:
             t = np.array(self.trans)
         # ego += t, pts -= t
@@ -250,6 +263,53 @@ class ProjectLabelToWaymoClass(object):
     def __repr__(self):
         repr_str = self.__class__.__name__
         return repr_str
+
+from mmdet3d.datasets.transforms.transforms_3d import BaseTransform
+@TRANSFORMS.register_module()
+class ObjectRangeFilter3D(BaseTransform):
+    """Filter objects by the range.
+
+    Required Keys:
+
+    - gt_bboxes_3d
+
+    Modified Keys:
+
+    - gt_bboxes_3d
+
+    Args:
+        point_cloud_range (list[float]): Point cloud range.
+    """
+
+    def __init__(self, point_cloud_range):
+        self.pcd_range = np.array(point_cloud_range, dtype=np.float32)
+
+    def transform(self, input_dict):
+        """Transform function to filter objects by the range.
+
+        Args:
+            input_dict (dict): Result dict from loading pipeline.
+
+        Returns:
+            dict: Results after filtering, 'gt_bboxes_3d', 'gt_labels_3d'
+            keys are updated in the result dict.
+        """
+        gt_bboxes_3d = input_dict['gt_bboxes_3d']
+        gt_labels_3d = input_dict['gt_labels_3d']
+        mask = gt_bboxes_3d.in_range_3d(self.pcd_range)
+        gt_bboxes_3d = gt_bboxes_3d[mask]
+        # mask is a torch tensor but gt_labels_3d is still numpy array
+        # using mask to index gt_labels_3d will cause bug when
+        # len(gt_labels_3d) == 1, where mask=1 will be interpreted
+        # as gt_labels_3d[1] and cause out of index error
+        gt_labels_3d = gt_labels_3d[mask.numpy().astype(np.bool)]
+
+        # limit rad to [-pi, pi]
+        gt_bboxes_3d.limit_yaw(offset=0.5, period=2 * np.pi)
+        input_dict['gt_bboxes_3d'] = gt_bboxes_3d
+        input_dict['gt_labels_3d'] = gt_labels_3d
+
+        return input_dict
 
 @TRANSFORMS.register_module()
 class Argo2LoadMultiViewImageFromFiles(LoadMultiViewImageFromFiles):
