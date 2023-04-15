@@ -1,49 +1,25 @@
 # Copyright (c) Phigent Robotics. All rights reserved.
-# circle NMS
-# mAP: 0.2439                                                                                                             
-# mATE: 0.8052
-# mASE: 0.2915
-# mAOE: 0.7103
-# mAVE: 1.0257
-# mAAE: 0.2811
-# NDS: 0.3132
-# Eval time: 75.8s
 
+# mAP: 0.2828
+# mATE: 0.7734
+# mASE: 0.2884
+# mAOE: 0.6976
+# mAVE: 0.8637
+# mAAE: 0.2908
+# NDS: 0.3500
+#
 # Per-class results:
-# Object Class    AP      ATE     ASE     AOE     AVE     AAE
-# car     0.428   0.659   0.172   0.131   1.209   0.270
-# truck   0.196   0.838   0.244   0.161   1.053   0.285
-# bus     0.258   0.885   0.226   0.220   2.172   0.416
-# trailer 0.062   1.157   0.251   0.755   0.645   0.076
-# construction_vehicle    0.055   0.983   0.491   1.244   0.102   0.386
-# pedestrian      0.245   0.780   0.304   1.280   0.926   0.514
-# motorcycle      0.236   0.731   0.277   1.024   1.610   0.247
-# bicycle 0.205   0.761   0.299   1.425   0.488   0.056
-# traffic_cone    0.373   0.603   0.354   nan     nan     nan
-# barrier 0.381   0.657   0.296   0.152   nan     nan
-
-# rotate NMS
-# mAP: 0.2265
-# mATE: 0.8286
-# mASE: 0.2911
-# mAOE: 0.6957
-# mAVE: 0.9823
-# mAAE: 0.2731
-# NDS: 0.3062
-# Eval time: 78.7s
-
-# Per-class results:
-# Object Class    AP      ATE     ASE     AOE     AVE     AAE
-# car     0.410   0.649   0.172   0.123   1.203   0.273
-# truck   0.183   0.824   0.242   0.148   1.053   0.288
-# bus     0.231   0.881   0.222   0.205   2.102   0.403
-# trailer 0.054   1.162   0.260   0.776   0.664   0.066
-# construction_vehicle    0.043   0.971   0.487   1.202   0.101   0.358
-# pedestrian      0.252   0.871   0.304   1.249   0.809   0.512
-# motorcycle      0.204   0.766   0.274   1.031   1.476   0.234
-# bicycle 0.174   0.791   0.294   1.361   0.450   0.051
-# traffic_cone    0.362   0.670   0.357   nan     nan     nan
-# barrier 0.352   0.700   0.300   0.166   nan     nan
+# Object Class	AP	ATE	ASE	AOE	AVE	AAE
+# car	0.517	0.533	0.161	0.123	0.909	0.235
+# truck	0.226	0.745	0.232	0.222	0.848	0.268
+# bus	0.305	0.797	0.220	0.192	1.982	0.355
+# trailer	0.101	1.107	0.230	0.514	0.536	0.068
+# construction_vehicle	0.039	1.105	0.501	1.402	0.119	0.386
+# pedestrian	0.318	0.805	0.305	1.341	0.826	0.650
+# motorcycle	0.216	0.783	0.286	0.977	1.224	0.273
+# bicycle	0.203	0.712	0.304	1.354	0.465	0.090
+# traffic_cone	0.499	0.547	0.347	nan	nan	nan
+# barrier	0.404	0.599	0.297	0.153	nan	nan
 _base_ = ['mmdet3d::_base_/datasets/nus-3d.py', 
           'mmdet3d::_base_/default_runtime.py',]
 # Global
@@ -167,19 +143,21 @@ model = dict(
             code_weights=[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.2, 0.2])),
     test_cfg=dict(
         pts=dict(
-            point_cloud_range=point_cloud_range,
-            # pc_range=[-75.2, -75.2],
             post_center_limit_range=[-61.2, -61.2, -10.0, 61.2, 61.2, 10.0],
             max_per_img=500,
             max_pool_nms=False,
             min_radius=[4, 12, 10, 1, 0.85, 0.175],
             score_threshold=0.1,
-            out_size_factor=8,
+            pc_range=[-51.2, -51.2],
+            out_size_factor=4,
             voxel_size=voxel_size[:2],
-            nms_type='circle',
+            nms_type='rotate',
             pre_max_size=1000,
             post_max_size=83,
+            nms_rescale_factor=[[1.0, 0.7, 0.7, 0.4, 0.55,
+                                 1.1, 1.0, 1.0, 1.5, 3.5]],
             nms_thr=0.2)))
+
 
 # Data
 dataset_type = 'NuScenesDataset'
@@ -202,12 +180,12 @@ train_pipeline = [
         type='GlobalRotScaleTrans',
         rot_range=[-0.3925, 0.3925],
         scale_ratio_range=[0.95, 1.05],
-        translation_std=[0, 0, 0]),#update_img2lidar
+        translation_std=[0, 0, 0]),
     dict(
         type='RandomFlip3D',
         sync_2d=False,
         flip_ratio_bev_horizontal=0.5,
-        flip_ratio_bev_vertical=0.5),#update_img2lidar
+        flip_ratio_bev_vertical=0.5),
     dict(type='LoadMultiViewImageFromFiles', to_float32=True),
     dict(type='filename2img_path'),
     # The order of image-view augmentation should be
