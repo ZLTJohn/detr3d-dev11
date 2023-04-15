@@ -29,9 +29,15 @@ class Pack3DDetInputsExtra(Pack3DDetInputs):
             'token',
             'num_pts_feats',
             'ksync_factor',
+            'lidar2ego',
         ]
         super().__init__(**kwargs)
         self.meta_keys = tuple(list(self.meta_keys)+extra_keys)
+    def transform(self, results):
+        lp = results.get('lidar_points',None)
+        if lp is not None:
+            results['lidar2ego'] = lp.get('lidar2ego',None)
+        return super().transform(results)
 
 @TRANSFORMS.register_module()
 class evalann2ann:

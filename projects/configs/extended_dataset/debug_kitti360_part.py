@@ -31,14 +31,14 @@ evaluation_interval = 12 # epochs
 K360_type = 'Kitti360Dataset'
 K360_data_root = 'data/kitti-360/'
 K360_train_pkl = 'kitti360_infos_train.pkl'
-K360_train_interval = 10    # 2Hz_part means interval = 5x3
+K360_train_interval = 5    # 2Hz_part means interval = 5x3
 K360_val_pkl = 'kitti360_infos_val.pkl'
 K360_val_interval = 1
 
 # load_interval_factor = load_interval_type['part']
 input_modality = dict(use_lidar=True, # True if debug_vis
                       use_camera=True)
-work_dir = './work_dirs_extended/debug_kitti360_part_5000frame_debug'
+work_dir = './work_dirs_extended/debug_kitti360_part'
 K360_name_map = {
     'person': 'Pedestrian',
     'bicycle': 'Cyclist',

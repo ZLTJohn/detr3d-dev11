@@ -38,7 +38,7 @@ class visualizer_zlt():
         self.gt_range = gt_range
         self.vis_count = vis_count
         self.pc_range = pc_range
-        self.identity_range = [0, 0, 0, 1, 1, 1]
+        self.identity_range = np.array([0, 0, 0, 1, 1, 1])
         self.draw_box = draw_box
         self.PIL_transform = Trans.ToPILImage()
         self.vis_tensor = vis_tensor
@@ -48,20 +48,41 @@ class visualizer_zlt():
         else:
             self.debug_name = debug_name
         self.draw_score_type = draw_score_type
-
-    def get_dataset_name(self, img_meta):
-        self.ds_name = img_meta['dataset_name']
-
-    def load_pts(self, img_meta):
-        path = img_meta['lidar_path']
-        self.pts_dim = img_meta['num_pts_feats']
-        file_format = os.path.splitext(path)[1]
-        if file_format == '.feather':# TODO: use condition of file format
-            sweep = Sweep.from_feather(Path(path))
-            pts = sweep.xyz
+    def infer_dataset_name(self,path):
+        if type(path) == list:
+            path = path[0]
+        if 'nus' in path:
+            return 'nuscenes'
+        elif 'way' in path:
+            return 'waymo'
+        elif 'argo' in path:
+            return 'argoverse2'
+        elif 'lyft' in path:
+            return 'lyft'
+        elif 'kitti' in path:
+            if '360' in path:
+                return 'kitti-360'
+            else:
+                return 'kitti'
         else:
-            points = np.fromfile(path, dtype=np.float32)
-            pts = points.reshape(-1, self.pts_dim)
+            return 'unknown'
+        
+    def get_dataset_name(self, img_meta):
+        self.ds_name = img_meta.get('dataset_name',None)
+        if self.ds_name is None:
+            self.ds_name = self.infer_dataset_name(img_meta['img_path'])
+
+    def load_pts(self, img_meta, pts= None):
+        if type(pts) == type(None):
+            path = img_meta['lidar_path']
+            self.pts_dim = img_meta['num_pts_feats']
+            file_format = os.path.splitext(path)[1]
+            if file_format == '.feather':# TODO: use condition of file format
+                sweep = Sweep.from_feather(Path(path))
+                pts = sweep.xyz
+            else:
+                points = np.fromfile(path, dtype=np.float32)
+                pts = points.reshape(-1, self.pts_dim)
         pts_homo = np.ones((pts.shape[0],4))
         pts_homo[:,:3] = pts[:,:3]
         trans = img_meta.get('trans_mat', np.identity(4))
@@ -132,19 +153,20 @@ class visualizer_zlt():
 
         return self.add_score(gt_instances_3d)
 
-    def visualize_dataset_item(self, frame, name_suffix=None, dirname=None):
+    def visualize_dataset_item(self, frame, batch_gt_instances_3d=None, pts=None, name_suffix=None, dirname=None):
         batch_data_samples = frame['data_samples']
         batch_inputs_dict = frame['inputs']
         batch_input_metas = [batch_data_samples.metainfo]
         batch_input_metas = self.add_lidar2img(batch_input_metas)
-        batch_gt_instances_3d = [
-            batch_data_samples.gt_instances_3d
-        ]
+        if batch_gt_instances_3d == None:
+            batch_gt_instances_3d = [
+                batch_data_samples.gt_instances_3d
+            ]
         self.visualize(batch_gt_instances_3d, batch_input_metas,
-                        batch_inputs_dict.get('imgs', None),name_suffix,
-                        dirname)
+                        batch_inputs_dict.get('imgs', None), pts,
+                        name_suffix, dirname)
 
-    def visualize(self, instances_3d=None, img_meta=None, img=None, name_suffix='', dirname = None, pause = True):
+    def visualize(self, instances_3d=None, img_meta=None, img=None, pts= None, name_suffix='', dirname = None, pause = True):
         # support only one sample once
         if pause:
             breakpoint()
@@ -168,7 +190,7 @@ class visualizer_zlt():
             instances_3d = self.add_score(instances_3d)
 
             if img_meta.get('lidar_path'):
-                pc = self.load_pts(img_meta)
+                pc = self.load_pts(img_meta, pts)
                 self.save_bev(pc, instances_3d, dirname, filename)
             img_from_file = self.load_imgs(img_paths)
             metacopy = copy(img_meta)
@@ -198,6 +220,46 @@ class visualizer_zlt():
         for i in range(img.size(0)):
             out_name = dirname + '/' + 'input_img_{}.jpg'.format(i)
             vutils.save_image(img[i], out_name)
+    # TODO: sync this function with the one in lyc_map
+    def get_bbox2img(self, ref_pt, img_meta, IDs):
+        '''
+        imgs: n images
+        refpt: tensor [num_pt,3]
+        IDs: [num_pt], group id of each ref point
+        '''
+        if type(img_meta) == list:
+            img_meta = img_meta[0]
+        ref_pt = ref_pt.reshape(-1,3) # x,y,z, type
+        sampler = DefaultFeatSampler()
+        pt_cam, mask = sampler.project_ego2cam(ref_pt,self.identity_range, [img_meta])
+        pt_cam = pt_cam.squeeze(0)
+        mask = mask.squeeze(0).squeeze(-1)  # [cam, gt]
+
+        imgs = self.load_imgs(img_meta['img_path'])
+        num_cam = len(imgs)
+        num_pt = ref_pt.shape[0]
+        h, w = img_meta['pad_shape']
+        pt_cam[..., 0] *= w
+        pt_cam[..., 1] *= h
+        draws = [ImageDraw.Draw(i) for i in imgs]
+        self.colors = []
+        for i in range(num_pt):
+            self.colors.append(self.get_color())
+        pt_colors = []
+        for ID in IDs:
+            pt_colors.append(self.colors[ID])
+        for i in range(num_cam):
+            self.draw_img_center(draws[i], pt_cam[i], mask[i], None, colors = pt_colors)
+
+        imgs_np = [np.array(img) for img in imgs]
+        return imgs_np
+
+    def print_img_to_canvas(self, ax, imgs):
+        sub_regions = np.split(np.split(ax, 3, axis=1), 2, axis=0)
+        for i,img in enumerate(imgs):
+            x = i/3
+            y = i%3
+            sub_regions[x,y].imshow(img)
 
     def save_bbox2img(self, imgs, instances_3d, img_meta, dirname, name=None):
 
@@ -253,14 +315,17 @@ class visualizer_zlt():
             out_name = dirname + '/{}_{}.png'.format(name, i)
             imgs[i].save(out_name)
 
-    def draw_img_center(self, draw, pt_cam, mask, instances_3d):
+    def draw_img_center(self, draw, pt_cam, mask, instances_3d, colors = None):
         num_query = pt_cam.shape[0]
         font = self.get_nice_font()
         for j in range(num_query):
             if mask[j] == True:
                 pt = pt_cam[j]
                 x, y = (int(pt[0]), int(pt[1]))
-                color = self.get_color()
+                if colors is None:
+                    color = self.get_color()
+                else:
+                    color = colors[j]
                 r = 6
                 draw.arc([(x - r, y - r), (x + r, y + r)],
                          0,

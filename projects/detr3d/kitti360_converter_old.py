@@ -8,7 +8,6 @@ from kitti360scripts.helpers import data, annotation, project
 from kitti360scripts.devkits.commons.loadCalibration import loadCalibrationRigid
 from pyquaternion import Quaternion
 # from kitti360scripts.devkits.convertOxtsPose.python.data import loadTimestamps
-PERCEPTION_RANGE = 100 # we look for objects within 100 meters of each frame
 CLASSES = ['bicycle', 'box', 'bridge', 'building', 'bus', 'car',
            'caravan', 'garage', 'lamp', 'motorcycle', 'person', 
            'pole', 'rider', 'smallpole', 'stop', 'traffic light', 
@@ -27,7 +26,6 @@ METAINFO = {
     'dataset': 'kitti-360',
     'info_version': '1.1',
     'version': 'v0.0-trainval'}
-
 class CustomCameraPerspective(project.CameraPerspective):
     def projectCenter(self, obj3d, frameId):
         vertices = obj3d.vertices.copy()
@@ -44,7 +42,7 @@ class kitti360Dataloader(object):
         if out_dir is None:
             out_dir = data_root
         self.out_dir = data_root
-        self.scenes = os.listdir(self.data_root+'/data_2d_raw')
+        self.scenes = [os.listdir(self.data_root+'/data_2d_raw')[-2]]
         self.loaders = []
         for scene in self.scenes:
             Loader = kitti360Dataloader_OneScene(self.data_root, scene, gt_in_cam_only = self.gt_in_cam_only)
@@ -97,9 +95,7 @@ class kitti360Dataloader_OneScene(object):
         # self.kitti360_mono = data.KITTI360(data_root,scene)
         self.label3DBboxPath = osp.join(self.kitti360Path, 'data_3d_bboxes')
         self.annotation3D = annotation.Annotation3D(self.label3DBboxPath, self.sequence)
-        self.object_per_frame = { i:[] for i in self.cameras[0].frames }
-        self.parse_dynamic_anno_to_frame()
-        self.parse_static_anno_to_frame()
+        self.object_per_frame = self.parse_anno_to_frame()
         self.load_lidar()
         self.load_images(cam_ids)
 
@@ -153,42 +149,32 @@ class kitti360Dataloader_OneScene(object):
             self.image_files.append(files_dict)
             print('there are {} images'.format(len(files_dict)))
         
-    def parse_dynamic_anno_to_frame(self):
-        # I don't know what globalID stand for: sematic ID x instanceID
+    def parse_anno_to_frame(self):
+        object_per_frame = { i:[] for i in self.cameras[0].frames }
+        # I don't know what globalID stand for, but roughly the same shit
         # TODO: check if duplicate gt for -1
         for globalID in self.annotation3D.objects:
             objs = self.annotation3D.objects[globalID]
-            if -1 not in objs:
+            if -1 in objs:
+                if len(objs) !=1:
+                    breakpoint()
+                # obj = objs[-1]
+                # self.class_names[obj.name] = 1
+                # L,R = obj.start_frame, obj.end_frame
+                # for frameID in range(L,R+1):
+                #     if frameID in object_per_frame:
+                #         object_per_frame[frameID].append(
+                #             {'object': obj,
+                #             'globalID': globalID})
+            else:
                 for frameID in objs:
-                    if frameID in self.object_per_frame:
+                    if frameID in object_per_frame:
                         obj = objs[frameID]
-                        if obj.name not in SELECTED_CLASS:
-                            continue
                         self.class_names[obj.name] = 1
-
-                        self.object_per_frame[frameID].append(
+                        object_per_frame[frameID].append(
                             {'object': obj,
                             'globalID': globalID})
-
-    def parse_static_anno_to_frame(self):
-        cam0 = self.cameras[0]
-        cam2world_T = []
-        for frameID in cam0.frames: cam2world_T.append(cam0.cam2world[frameID][:3,3])
-        cam2world_T = np.array(cam2world_T)
-        for globalID in self.annotation3D.objects:
-            objs = self.annotation3D.objects[globalID]
-            if -1 in objs:  
-                obj = objs[-1]
-                if obj.name not in SELECTED_CLASS:
-                    continue
-                self.class_names[obj.name] = 1
-
-                obj2cam_dist = np.linalg.norm(obj.T - cam2world_T,axis=1)
-                mask = obj2cam_dist < PERCEPTION_RANGE  # the projection is not fucking right, find that car and track it
-                good_frame = cam0.frames[mask]
-                for frameID in good_frame:
-                    self.object_per_frame[frameID].append({'object': obj,
-                                       'globalID': globalID})
+        return object_per_frame
 
     def project_gt_to_cam0(self):
         print('\nprojecting 3D gt boxes to each frame of scene', self.sequence)
@@ -198,6 +184,8 @@ class kitti360Dataloader_OneScene(object):
             objs = self.object_per_frame[frameID]
             for obj_dict in objs:
                 obj = obj_dict['object']
+                if obj.name not in SELECTED_CLASS:
+                    continue
                 vertices_world = obj.vertices
                 # center_world = obj.T.reshape(1,3)
                 # obj2world_R = obj.R # this is not SE3 matrix
@@ -245,11 +233,11 @@ class kitti360Dataloader_OneScene(object):
             # ego2global = 
             cam0_to_global = self.cameras[0].cam2world[frameID]
             images = {}
-            # if sample_idx == 8694:
-            #     breakpoint()
-            # else:
-            #     prog_bar.update()
-            #     continue
+            if sample_idx == 8694:
+                breakpoint()
+            else:
+                prog_bar.update()
+                continue
             for idx,(cam_id,cam) in enumerate(zip(self.cam_ids,self.cameras)):
                 image = {}
                 img_path = osp.join(self.image_dirs[idx], self.image_files[idx][ID])
@@ -277,10 +265,7 @@ class kitti360Dataloader_OneScene(object):
             objid=0
             for obj_dict in objs:
                 obj = obj_dict['object']
-                # if obj.semanticId == 26 and obj.instanceId == 467 and frameID == 8974:
-                #     breakpoint()
                 if obj.name not in SELECTED_CLASS:
-                    print('bugged')
                     continue
                 if self.gt_in_cam_only and obj_dict['in_image'] == False:
                     continue
@@ -305,6 +290,8 @@ class kitti360Dataloader_OneScene(object):
                     print('\n invalid Rot matrix:',obj.name, yaw, pitch, roll)
 
                 bbox_label_3d = CLASSES.index(obj.name)
+                # if ID == 115:
+                #     breakpoint()
                 if self.calc_num_lidar_pts:
                     from av2.geometry.geometry import compute_interior_points_mask
                     Perm = [0,2,3,1,5,7,6,4]    # kitti-360 format to av2 format
