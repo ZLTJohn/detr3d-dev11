@@ -33,7 +33,6 @@ class_names = [
 ]
 custom_imports = dict(imports=['projects.bevdet'])
 default_scope = 'mmdet3d'
-resume = True
 # Model
 grid_config = {
     'x': [-51.2, 51.2, 0.8],
@@ -41,7 +40,7 @@ grid_config = {
     'z': [-5, 3, 8],
     'depth': [1.0, 60.0, 1.0],
 }
-work_dir = 'work_dirs/debug_bevdet_r50_smallpc'
+
 voxel_size = [0.1, 0.1, 0.2]
 img_norm_cfg = dict(
     mean=[123.675, 116.28, 103.53], 
@@ -52,6 +51,7 @@ debug_vis_cfg = dict(debug_dir='debug/visualization',
                      pc_range=point_cloud_range,
                      vis_count=2000,
                      debug_name='bevdet')
+resume = True
 model = dict(
     type='BEVDet',
     # debug_vis_cfg=debug_vis_cfg, 
@@ -72,7 +72,7 @@ model = dict(
     img_neck=dict(#differs
         type='LSSFPN',
         in_channels=1024 + 2048,
-        out_channels=512,
+        out_channels=256,
         upsampling_scale_output=None,
         input_feat_indexes=(0, 1),
         upsampling_scale=2,
@@ -82,7 +82,7 @@ model = dict(
         grid_config=grid_config,
         input_size=(256, 704),
         downsample=16,
-        in_channels=512,
+        in_channels=256,
         out_channels=64,
         accelerate=False),
     img_bev_encoder_backbone=dict(# differs
@@ -105,19 +105,19 @@ model = dict(
         type='CenterHead',
         in_channels=256,
         tasks=[
-            dict(num_class=1, class_names=['car']),
-            dict(num_class=2, class_names=['truck', 'construction_vehicle']),
-            dict(num_class=2, class_names=['bus', 'trailer']),
-            dict(num_class=1, class_names=['barrier']),
-            dict(num_class=2, class_names=['motorcycle', 'bicycle']),
-            dict(num_class=2, class_names=['pedestrian', 'traffic_cone']),
+            dict(num_class=10, class_names=['car', 'truck',
+                                            'construction_vehicle',
+                                            'bus', 'trailer',
+                                            'barrier',
+                                            'motorcycle', 'bicycle',
+                                            'pedestrian', 'traffic_cone']),
         ],
         common_heads=dict(
             reg=(2, 2), height=(1, 2), dim=(3, 2), rot=(2, 2), vel=(2, 2)),
         share_conv_channel=64,
         bbox_coder=dict(
             type='CenterPointBBoxCoder',
-            pc_range=point_cloud_range[:2],
+            pc_range=point_cloud_range,
             post_center_range=[-61.2, -61.2, -10.0, 61.2, 61.2, 10.0],
             max_num=500,
             score_threshold=0.1,
@@ -273,28 +273,30 @@ data_prefix = dict(pts='samples/LIDAR_TOP',
                    CAM_BACK_LEFT='samples/CAM_BACK_LEFT',
                    CAM_BACK_RIGHT='samples/CAM_BACK_RIGHT',)
 train_dataloader = dict(
+    _delete_=True,
     batch_size=8,
     num_workers=4,
     persistent_workers=False,
     drop_last=False,
     sampler=dict(type='DefaultSampler', shuffle=True),
     dataset=dict(
-        type=dataset_type,
-        data_root=data_root,
-        ann_file='nuscenes_infos_train.pkl',
-        pipeline=train_pipeline,
-        load_type='frame_based',
-        metainfo=metainfo,
-        modality=input_modality,
-        test_mode=False,
-        use_valid_flag = True,
-        data_prefix=data_prefix,
-        # we use box_type_3d='LiDAR' in kitti and nuscenes dataset
-        # and box_type_3d='Depth' in sunrgbd and scannet dataset.
-        box_type_3d='LiDAR'))
+        type='CBGSDataset',
+        dataset=dict(
+            type=dataset_type,
+            data_root=data_root,
+            ann_file='nuscenes_infos_train.pkl',
+            pipeline=train_pipeline,
+            load_type='frame_based',
+            metainfo=metainfo,
+            modality=input_modality,
+            test_mode=False,
+            data_prefix=data_prefix,
+            # we use box_type_3d='LiDAR' in kitti and nuscenes dataset
+            # and box_type_3d='Depth' in sunrgbd and scannet dataset.
+            box_type_3d='LiDAR')))
 
 val_dataloader = dict(
-    batch_size=8,
+    batch_size=2,
     num_workers=4,
     persistent_workers=False,
     drop_last=False,

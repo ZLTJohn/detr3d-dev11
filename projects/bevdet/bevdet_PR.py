@@ -1,27 +1,6 @@
-# Copyright (c) Phigent Robotics. All rights reserved.
+# Copyright (c) OpenMMLab. All rights reserved.
 
-# mAP: 0.2828
-# mATE: 0.7734
-# mASE: 0.2884
-# mAOE: 0.6976
-# mAVE: 0.8637
-# mAAE: 0.2908
-# NDS: 0.3500
-#
-# Per-class results:
-# Object Class	AP	ATE	ASE	AOE	AVE	AAE
-# car	0.517	0.533	0.161	0.123	0.909	0.235
-# truck	0.226	0.745	0.232	0.222	0.848	0.268
-# bus	0.305	0.797	0.220	0.192	1.982	0.355
-# trailer	0.101	1.107	0.230	0.514	0.536	0.068
-# construction_vehicle	0.039	1.105	0.501	1.402	0.119	0.386
-# pedestrian	0.318	0.805	0.305	1.341	0.826	0.650
-# motorcycle	0.216	0.783	0.286	0.977	1.224	0.273
-# bicycle	0.203	0.712	0.304	1.354	0.465	0.090
-# traffic_cone	0.499	0.547	0.347	nan	nan	nan
-# barrier	0.404	0.599	0.297	0.153	nan	nan
-_base_ = ['mmdet3d::_base_/datasets/nus-3d.py', 
-          'mmdet3d::_base_/default_runtime.py',]
+_base_ = ['../_base_/datasets/nus-3d.py', '../_base_/default_runtime.py']
 # Global
 # If point cloud range is changed, the models should also change their point
 # cloud range accordingly
@@ -31,36 +10,22 @@ class_names = [
     'car', 'truck', 'construction_vehicle', 'bus', 'trailer', 'barrier',
     'motorcycle', 'bicycle', 'pedestrian', 'traffic_cone'
 ]
-custom_imports = dict(imports=['projects.bevdet'])
-default_scope = 'mmdet3d'
-resume = True
+
 # Model
 grid_config = {
     'x': [-51.2, 51.2, 0.8],
     'y': [-51.2, 51.2, 0.8],
-    'z': [-5, 3, 8],
+    'z': [-10.0, 10.0, 20.0],
     'depth': [1.0, 60.0, 1.0],
 }
-work_dir = 'work_dirs/debug_bevdet_r50_smallpc'
+
 voxel_size = [0.1, 0.1, 0.2]
-img_norm_cfg = dict(
-    mean=[123.675, 116.28, 103.53], 
-    std=[58.395, 57.12, 57.375], 
-    bgr_to_rgb=True)
-debug_vis_cfg = dict(debug_dir='debug/visualization',
-                     gt_range=[0, 105],
-                     pc_range=point_cloud_range,
-                     vis_count=2000,
-                     debug_name='bevdet')
+
 model = dict(
     type='BEVDet',
-    # debug_vis_cfg=debug_vis_cfg, 
-    data_preprocessor=dict(type='Det3DDataPreprocessor',
-                        **img_norm_cfg,
-                        pad_size_divisor=32),
     img_backbone=dict(
-        init_cfg=dict(type='Pretrained', checkpoint='torchvision://resnet50'),
-        type='mmdet.ResNet',
+        pretrained='torchvision://resnet50',
+        type='ResNet',
         depth=50,
         num_stages=4,
         out_indices=(2, 3),
@@ -69,7 +34,7 @@ model = dict(
         norm_eval=False,
         with_cp=True,
         style='pytorch'),
-    img_neck=dict(#differs
+    img_neck=dict(
         type='LSSFPN',
         in_channels=1024 + 2048,
         out_channels=512,
@@ -77,7 +42,7 @@ model = dict(
         input_feat_indexes=(0, 1),
         upsampling_scale=2,
         use_input_conv=True),
-    img_view_transformer=dict(
+    view_transformer=dict(
         type='LSSViewTransformer',
         grid_config=grid_config,
         input_size=(256, 704),
@@ -85,7 +50,7 @@ model = dict(
         in_channels=512,
         out_channels=64,
         accelerate=False),
-    img_bev_encoder_backbone=dict(# differs
+    bev_encoder_backbone=dict(
         type='CustomResNet',
         depth=18,
         num_stages=3,
@@ -99,7 +64,7 @@ model = dict(
         norm_cfg=dict(type='BN', requires_grad=True),
         norm_eval=False,
         style='pytorch'),
-    img_bev_encoder_neck=dict(
+    bev_encoder_neck=dict(
         type='LSSFPN', in_channels=64 * 8 + 64 * 2, out_channels=256),
     pts_bbox_head=dict(
         type='CenterHead',
@@ -126,14 +91,13 @@ model = dict(
             code_size=9),
         separate_head=dict(
             type='SeparateHead', init_bias=-2.19, final_kernel=3),
-        loss_cls=dict(type='mmdet.GaussianFocalLoss', reduction='mean'),
-        loss_bbox=dict(type='mmdet.L1Loss', reduction='mean', loss_weight=0.25),
+        loss_cls=dict(type='GaussianFocalLoss', reduction='mean'),
+        loss_bbox=dict(type='L1Loss', reduction='mean', loss_weight=0.25),
         norm_bbox=True),
     # model training and testing settings
     train_cfg=dict(
         pts=dict(
             point_cloud_range=point_cloud_range,
-            # pc_range=[-75.2, -75.2],
             grid_size=[1024, 1024, 40],
             voxel_size=voxel_size,
             out_size_factor=8,
@@ -144,8 +108,7 @@ model = dict(
             code_weights=[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.2, 0.2])),
     test_cfg=dict(
         pts=dict(
-            point_cloud_range=point_cloud_range,
-            # pc_range=[-75.2, -75.2],
+            pc_range=point_cloud_range[:2],
             post_center_limit_range=[-61.2, -61.2, -10.0, 61.2, 61.2, 10.0],
             max_per_img=500,
             max_pool_nms=False,
@@ -160,10 +123,11 @@ model = dict(
 
 # Data
 dataset_type = 'NuScenesDataset'
-data_root = 'data/nus_v2/'
-nusc_scale = (704, 396)
-crop_wh=(704, 256)
-crop_hw=(256, 704)
+data_root = 'data/nuscenes/'
+file_client_args = dict(backend='disk')
+
+img_norm_cfg = dict(
+    mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True)
 
 train_pipeline = [
     # To avoid 'flip' information conflict between RandomFlip and RandomFlip3D,
@@ -173,7 +137,8 @@ train_pipeline = [
         type='LoadPointsFromFile',
         coord_type='LIDAR',
         load_dim=5,
-        use_dim=5),
+        use_dim=5,
+        file_client_args=file_client_args),
     dict(type='LoadAnnotations3D', with_bbox_3d=True, with_label_3d=True),
     dict(
         type='GlobalRotScaleTrans',
@@ -186,36 +151,37 @@ train_pipeline = [
         flip_ratio_bev_horizontal=0.5,
         flip_ratio_bev_vertical=0.5),
     dict(type='LoadMultiViewImageFromFiles', to_float32=True),
-    dict(type='filename2img_path'),
     # The order of image-view augmentation should be
     # resize -> crop -> pad -> flip -> rotate
     dict(
         type='MultiViewWrapper',
         transforms=[
             dict(
-                type='RandomResize', ratio_range=(0.864, 1.25), #just did not change cam2img
-                scale=nusc_scale),
+                type='Resize', ratio_range=(0.864, 1.25),
+                img_scale=(396, 704)),
             dict(
                 type='RangeLimitedRandomCrop',
                 relative_x_offset_range=(0.0, 1.0),
                 relative_y_offset_range=(1.0, 1.0),
-                crop_size=crop_hw),
-            dict(type='Pad', size=crop_wh),
-            dict(type='RandomFlip', prob=0.5),
+                crop_size=(256, 704)),
+            dict(type='Pad', size=(256, 704)),
+            dict(type='RandomFlip', flip_ratio=0.5),
             dict(
                 type='RandomRotate',
                 range=(-5.4, 5.4),
-                img_border_value=0,
+                img_fill_val=0,
                 level=1,
                 prob=1.0),
-            # dict(type='Normalize', **img_norm_cfg)
+            dict(type='Normalize', **img_norm_cfg)
         ],
         collected_keys=['scale_factor', 'crop', 'pad_shape', 'flip',
                         'rotate']),
     dict(type='GetBEVDetInputs'),
     dict(type='ObjectRangeFilter', point_cloud_range=point_cloud_range),
     dict(type='ObjectNameFilter', classes=class_names),
-    dict(type='Pack3DDetInputsBEVDet', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
+    dict(type='DefaultFormatBundle3D', class_names=class_names),
+    dict(
+        type='Collect3D', keys=['img_inputs', 'gt_bboxes_3d', 'gt_labels_3d'])
 ]
 
 test_pipeline = [
@@ -223,130 +189,80 @@ test_pipeline = [
         type='LoadPointsFromFile',
         coord_type='LIDAR',
         load_dim=5,
-        use_dim=5),
+        use_dim=5,
+        file_client_args=file_client_args),
     dict(type='LoadMultiViewImageFromFiles', to_float32=True),
-    dict(type='filename2img_path'),
     # The order of image-view augmentation should be
     # resize -> crop -> pad -> flip -> rotate
     dict(
         type='MultiViewWrapper',
         transforms=[
             dict(
-                type='RandomResize',
+                type='Resize',
                 ratio_range=(1.091, 1.091),
-                scale=nusc_scale),
+                img_scale=(396, 704)),
             dict(
                 type='RangeLimitedRandomCrop',
                 relative_x_offset_range=(0.5, 0.5),
                 relative_y_offset_range=(1.0, 1.0),
-                crop_size=crop_hw),
-            dict(type='Pad', size=crop_wh),
-            dict(type='RandomFlip', prob=0.0),
+                crop_size=(256, 704)),
+            dict(type='Pad', size=(256, 704)),
+            dict(type='RandomFlip', flip_ratio=0.0),
             dict(
                 type='RandomRotate',
                 range=(-0.0, 0.0),
-                img_border_value=0,
+                img_fill_val=0,
                 level=1,
                 prob=0.0),
-            # dict(type='Normalize', **img_norm_cfg)
+            dict(type='Normalize', **img_norm_cfg)
         ],
         collected_keys=['scale_factor', 'crop', 'pad_shape', 'flip',
                         'rotate']),
     dict(type='GetBEVDetInputs'),
-    dict(type='Pack3DDetInputsBEVDet', keys=['img'])
+    dict(type='DefaultFormatBundle3D', class_names=class_names),
+    dict(type='Collect3D', keys=['img_inputs'])
 ]
 
 input_modality = dict(
-    use_lidar=True,
+    use_lidar=False,
     use_camera=True,
     use_radar=False,
     use_map=False,
     use_external=False)
 
-metainfo = dict(classes=class_names)
-data_prefix = dict(pts='samples/LIDAR_TOP',
-                   sweeps='sweeps/LIDAR_TOP',
-                   CAM_FRONT='samples/CAM_FRONT',
-                   CAM_FRONT_RIGHT='samples/CAM_FRONT_RIGHT',
-                   CAM_FRONT_LEFT='samples/CAM_FRONT_LEFT',
-                   CAM_BACK='samples/CAM_BACK',
-                   CAM_BACK_LEFT='samples/CAM_BACK_LEFT',
-                   CAM_BACK_RIGHT='samples/CAM_BACK_RIGHT',)
-train_dataloader = dict(
-    batch_size=8,
-    num_workers=4,
-    persistent_workers=False,
-    drop_last=False,
-    sampler=dict(type='DefaultSampler', shuffle=True),
-    dataset=dict(
+data = dict(
+    samples_per_gpu=8,
+    workers_per_gpu=4,
+    train=dict(
         type=dataset_type,
         data_root=data_root,
-        ann_file='nuscenes_infos_train.pkl',
+        ann_file=data_root + 'nuscenes_infos_train.pkl',
         pipeline=train_pipeline,
-        load_type='frame_based',
-        metainfo=metainfo,
-        modality=input_modality,
+        classes=class_names,
         test_mode=False,
-        use_valid_flag = True,
-        data_prefix=data_prefix,
+        use_valid_flag=True,
+        modality=input_modality,
         # we use box_type_3d='LiDAR' in kitti and nuscenes dataset
         # and box_type_3d='Depth' in sunrgbd and scannet dataset.
-        box_type_3d='LiDAR'))
+        box_type_3d='LiDAR'),
+    val=dict(
+        pipeline=test_pipeline,
+        classes=class_names,
+        ann_file=data_root + 'nuscenes_infos_val.pkl',
+        modality=input_modality),
+    test=dict(
+        pipeline=test_pipeline,
+        classes=class_names,
+        ann_file=data_root + 'nuscenes_infos_val.pkl',
+        modality=input_modality))
 
-val_dataloader = dict(
-    batch_size=8,
-    num_workers=4,
-    persistent_workers=False,
-    drop_last=False,
-    sampler=dict(type='DefaultSampler', shuffle=False),
-    dataset=dict(type=dataset_type,
-                data_root=data_root,
-                ann_file='nuscenes_infos_val.pkl',
-                load_type='frame_based',
-                pipeline=test_pipeline,
-                metainfo=metainfo,
-                modality=input_modality,
-                test_mode=True,
-                data_prefix=data_prefix,
-                box_type_3d='LiDAR'))
-test_dataloader = val_dataloader
-
-val_evaluator = dict(type='NuScenesMetric',
-                     data_root=data_root,
-                     ann_file=data_root + 'nuscenes_infos_val.pkl',
-                     metric='bbox')
-test_evaluator = val_evaluator
 # Optimizer
-optim_wrapper = dict(
-    type='OptimWrapper',
-    optimizer=dict(type='AdamW', lr=2e-4, weight_decay=1e-07),
-    # paramwise_cfg=dict(custom_keys={'img_backbone': dict(lr_mult=0.1)}),
-    clip_grad=dict(max_norm=5, norm_type=2),
-)
-
-total_epochs = 24
-
-train_cfg = dict(type='EpochBasedTrainLoop',
-                 max_epochs=total_epochs,
-                 val_interval=12)
-val_cfg = dict(type='ValLoop')
-test_cfg = dict(type='TestLoop')
-default_hooks = dict(checkpoint=dict(
-    type='CheckpointHook', interval=1, max_keep_ckpts=1, save_last=True))
-
-param_scheduler = [
-    dict(type='LinearLR',
-         start_factor=0.001,
-         by_epoch=False,
-         begin=0,
-         end=200),
-    dict(type='MultiStepLR',
-         by_epoch=True,
-         milestones=[19, 23],
-         begin=0,
-         end=24)
-]
-vis_backends = [dict(type='TensorboardVisBackend')]
-visualizer = dict(type='Det3DLocalVisualizer',
-                  vis_backends=vis_backends,
-                  name='visualizer')
+optimizer = dict(type='AdamW', lr=2e-4, weight_decay=1e-07)
+optimizer_config = dict(grad_clip=dict(max_norm=5, norm_type=2))
+lr_config = dict(
+    policy='step',
+    warmup='linear',
+    warmup_iters=200,
+    warmup_ratio=0.001,
+    step=[19, 23])
+runner = dict(type='EpochBasedRunner', max_epochs=24)

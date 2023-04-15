@@ -41,6 +41,7 @@ grid_config = {
     'z': [-5, 3, 8],
     'depth': [1.0, 60.0, 1.0],
 }
+numC_Trans=64
 work_dir = 'work_dirs/debug_bevdet_r50_smallpc'
 voxel_size = [0.1, 0.1, 0.2]
 img_norm_cfg = dict(
@@ -85,20 +86,7 @@ model = dict(
         in_channels=512,
         out_channels=64,
         accelerate=False),
-    img_bev_encoder_backbone=dict(# differs
-        type='CustomResNet',
-        depth=18,
-        num_stages=3,
-        stem_channels=64,
-        base_channels=128,
-        out_indices=(0, 1, 2),
-        strides=(2, 2, 2),
-        dilations=(1, 1, 1),
-        frozen_stages=-1,
-        with_cp=False,
-        norm_cfg=dict(type='BN', requires_grad=True),
-        norm_eval=False,
-        style='pytorch'),
+    img_bev_encoder_backbone = dict(type='ResNetForBEVDet', numC_input=numC_Trans),
     img_bev_encoder_neck=dict(
         type='LSSFPN', in_channels=64 * 8 + 64 * 2, out_channels=256),
     pts_bbox_head=dict(
