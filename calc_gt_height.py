@@ -21,7 +21,7 @@ def calc_one_split(data_root, pkl0, pkl1 ):
     box_z = []
     for frame in info0:
         for inst in frame['instances']:
-            if 'way' in pkl0:
+            if 'way' in pkl0 or ('kitti' in pkl0 and 'kitti360' not in pkl0):
                 z = inst['bbox_3d'][1]-0.5*inst['bbox_3d'][4]
                 x = inst['bbox_3d'][0]
                 y = inst['bbox_3d'][2]
@@ -60,8 +60,19 @@ argo2_ssd_path = '/localdata_ssd/argo2_dev1x/'
 nusc_ssd_path = '/localdata_ssd/nusc_dev1x/'
 waymo_ssd_path = '/localdata_ssd/waymo_dev1x/'
 
-calc_one_split(argo2_ssd_path, argo2_train_pkl, argo2_val_pkl)
+lyft_type = 'CustomLyft'
+lyft_data_root = 'data/lyft/'
+lyft_train_pkl = 'lyft_infos_train.pkl' 
+lyft_train_interval = 1
+lyft_val_pkl = 'lyft_infos_val.pkl'
+lyft_val_interval = 1
 
-calc_one_split(nusc_ssd_path, nusc_train_pkl, nusc_val_pkl)
+# calc_one_split(lyft_data_root, lyft_train_pkl, lyft_val_pkl)
+# calc_one_split(argo2_ssd_path, argo2_train_pkl, argo2_val_pkl)
 
-calc_one_split(waymo_ssd_path, waymo_train_pkl,waymo_val_pkl)
+# calc_one_split(nusc_ssd_path, nusc_train_pkl, nusc_val_pkl)
+
+# calc_one_split(waymo_ssd_path, waymo_train_pkl,waymo_val_pkl)
+from projects.configs.extended_dataset import debug_pkl_meta as cfg
+calc_one_split(cfg.kitti_data_root, cfg.kitti_train_pkl, cfg.kitti_val_pkl)
+calc_one_split(cfg.K360_data_root, cfg.K360_train_pkl, cfg.K360_val_pkl)
