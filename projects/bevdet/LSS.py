@@ -94,10 +94,13 @@ class LSSViewTransformer(BaseModule):
                  in_channels,
                  out_channels,
                  accelerate=False,
-                 max_voxel_points=300):
+                 max_voxel_points=300,
+                 dataset_names = ['nuscenes', 'waymo']):
         super(LSSViewTransformer, self).__init__()
         self.create_grid_infos(**grid_config)
-        self.create_frustum(grid_config['depth'], input_size, downsample)
+        if type(input_size) != list:
+            input_size = [input_size]
+        self.create_frustum(grid_config['depth'], input_size, downsample,dataset_names)
         self.out_channels = out_channels
         self.depth_net = nn.Conv2d(
             in_channels, self.D + self.out_channels, kernel_size=1, padding=0)
@@ -122,7 +125,7 @@ class LSSViewTransformer(BaseModule):
         self.grid_size = torch.Tensor([(cfg[1] - cfg[0]) / cfg[2]
                                        for cfg in [x, y, z]])
 
-    def create_frustum(self, depth_cfg, input_size, downsample):
+    def create_frustum(self, depth_cfg, input_sizes, downsample, dataset_names):
         """Generate the frustum template for each image.
         Args:
             depth_cfg (tuple(float)): Config of grid alone depth axis in format
@@ -132,18 +135,20 @@ class LSSViewTransformer(BaseModule):
             downsample (int): Down sample scale factor from the input size to
                 the feature size.
         """
-        H_in, W_in = input_size
-        H_feat, W_feat = H_in // downsample, W_in // downsample
-        d = torch.arange(*depth_cfg, dtype=torch.float)\
-            .view(-1, 1, 1).expand(-1, H_feat, W_feat)
-        self.D = d.shape[0]
-        x = torch.linspace(0, W_in - 1, W_feat,  dtype=torch.float)\
-            .view(1, 1, W_feat).expand(self.D, H_feat, W_feat)
-        y = torch.linspace(0, H_in - 1, H_feat,  dtype=torch.float)\
-            .view(1, H_feat, 1).expand(self.D, H_feat, W_feat)
+        self.frustum = {}
+        for input_size, dataset_name in zip(input_sizes,dataset_names):
+            H_in, W_in = input_size
+            H_feat, W_feat = H_in // downsample, W_in // downsample
+            d = torch.arange(*depth_cfg, dtype=torch.float)\
+                .view(-1, 1, 1).expand(-1, H_feat, W_feat)
+            self.D = d.shape[0]
+            x = torch.linspace(0, W_in - 1, W_feat,  dtype=torch.float)\
+                .view(1, 1, W_feat).expand(self.D, H_feat, W_feat)
+            y = torch.linspace(0, H_in - 1, H_feat,  dtype=torch.float)\
+                .view(1, H_feat, 1).expand(self.D, H_feat, W_feat)
 
-        # D x H x W x 3
-        self.frustum = torch.stack((x, y, d), -1)
+            # D x H x W x 3
+            self.frustum[dataset_name] = torch.stack((x, y, d), -1)
 
     def get_lidar_coor(self, rots, trans, cam2imgs, post_rots, post_trans):
         """Calculate the locations of the frustum points in the lidar
@@ -168,14 +173,14 @@ class LSSViewTransformer(BaseModule):
 
         # post-transformation
         # B x N x D x H x W x 3
-        points = self.frustum.to(rots) - post_trans.view(B, N, 1, 1, 1, 3)
+        points = self.frustum[self.curr_dataset].to(rots) - post_trans.view(B, N, 1, 1, 1, 3)
         points = torch.inverse(post_rots).view(B, N, 1, 1, 1, 3, 3)\
             .matmul(points.unsqueeze(-1))
 
         # cam_to_ego
         points = torch.cat(
             (points[..., :2, :] * points[..., 2:3, :], points[..., 2:3, :]), 5)
-        combine = rots.matmul(torch.inverse(cam2imgs))
+        combine = rots.matmul(torch.inverse(cam2imgs[...,:3,:3]))
         points = combine.view(B, N, 1, 1, 1, 3, 3).matmul(points).squeeze(-1)
         points += trans.view(B, N, 1, 1, 1, 3)
 
@@ -323,7 +328,7 @@ class LSSViewTransformer(BaseModule):
         depth = x[:, :self.D].softmax(dim=1)
         tran_feat = x[:, self.D:(self.D + self.out_channels)]
         bevdet_input = self.get_bevdet_input(img_metas)
-
+        self.curr_dataset = img_metas[0].get('dataset_name','nuscenes') # TODO: infer ds name if get None
         # Lift
         volume = depth.unsqueeze(1) * tran_feat.unsqueeze(2)
         volume = volume.view(B, N, self.out_channels, self.D, H, W)

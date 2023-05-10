@@ -90,6 +90,15 @@ class BEVDet(CenterPoint):
         results_list_3d = self.pts_bbox_head.predict(img_feats, batch_data_samples, **kwargs)
         detsamples = self.add_pred_to_datasample(batch_data_samples,
                                                  results_list_3d)
+        if self.vis is not None:
+            batch_gt_instances_3d = [
+                item.gt_instances_3d for item in batch_data_samples]
+            if len(batch_gt_instances_3d[0])!=0:
+                self.vis.visualize(batch_gt_instances_3d, img_metas,name_suffix='_gt')
+                self.vis.visualize(results_list_3d, img_metas,
+                               batch_inputs_dict.get('imgs', None))
+            else:
+                print('skipping one frame since no gt left')
         return detsamples
 
     # def forward_dummy(self,

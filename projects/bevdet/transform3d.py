@@ -1,14 +1,16 @@
+from typing import Any
 from mmdet3d.registry import TRANSFORMS
 from mmdet3d.datasets.transforms.loading import LoadMultiViewImageFromFiles
 from mmdet.datasets.transforms import Rotate
 from mmdet3d.datasets.transforms.transforms_3d import RandomCrop
-from mmdet3d.datasets.transforms.formating import Pack3DDetInputs
+# from mmdet3d.datasets.transforms.formating import Pack3DDetInputs
+from projects.detr3d.transform_3d import Pack3DDetInputsExtra
 from mmengine.fileio import get
 import numpy as np
 import torch
 
 @TRANSFORMS.register_module()
-class Pack3DDetInputsBEVDet(Pack3DDetInputs):
+class Pack3DDetInputsBEVDet(Pack3DDetInputsExtra):
     def __init__(self, **kwargs) -> None:
         extra_keys = [
             'bevdet_input'
