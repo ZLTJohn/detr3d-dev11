@@ -30,6 +30,7 @@ class Pack3DDetInputsExtra(Pack3DDetInputs):
             'num_pts_feats',
             'ksync_factor',
             'lidar2ego',
+            'img_flip'
         ]
         super().__init__(**kwargs)
         self.meta_keys = tuple(list(self.meta_keys)+extra_keys)
@@ -84,6 +85,9 @@ class Ksync:
 from mmcv.image.geometric import _scale_size
 @TRANSFORMS.register_module()
 class SyncFocalLength:
+    '''
+    Sync back camera focal length for NuScenes
+    '''
     def __init__(self, specific_idx = -1):
         self.specific_idx = specific_idx
     def __call__(self, results):
@@ -167,6 +171,39 @@ class RotateScene_neg90:
         return results
     # TODO: parse ego_old2new to img_meta so that visualizer can deal with it
     # parse it to eval ann info
+@TRANSFORMS.register_module()
+class ego_transform:
+    '''
+    Do ego transformation for NuScenes and Lyft
+    '''
+    def __init__(self, trans='lidar2ego'):
+        self.T = trans
+    def transformation(self,results, Tr):
+        inv_Tr = np.linalg.inv(Tr)
+        results['gt_bboxes_3d'].rotate(Tr[:3,:3].T) # LidarInstance.rotate use right-side matmul
+        results['gt_bboxes_3d'].translate(Tr[:3,3])
+        results['lidar2cam'] = np.array(results['lidar2cam']) @ inv_Tr # @ pt_new
+        trans = results.get('trans_mat',np.identity(4))
+        results['trans_mat'] = Tr @ trans # @ pt_origin
+        return results
+
+    def __call__(self, results):
+        if type(self.T) is not str:
+            Tr = np.array(self.T)
+        else:
+            Tr = np.array(results['lidar_points'][self.T])
+        if self.T == 'Tr_imu_to_velo':
+            Tr = np.linalg.inv(Tr)
+        return self.transformation(results, Tr)
+        
+# Tr_K360=[1,-1,-1,1], too big change for K360 to able mmdet3d work properly
+@TRANSFORMS.register_module()
+class ego_transform_K360(ego_transform):
+    def __call__(self, results):
+        Tr = np.array(results['lidar_points'][self.T])
+        rectify = np.diag([1,-1,-1,1.])
+        Tr = rectify @ Tr
+        return self.transformation(results, Tr)
 
 @TRANSFORMS.register_module()
 class EgoTranslate:
@@ -223,6 +260,44 @@ class EgoTranslate:
         results['lidar2cam'] = np.array(results['lidar2cam']) @ new2old # @ pt_new
         trans = results.get('trans_mat',np.identity(4))
         results['trans_mat'] = old2new @ trans # @ pt_origin
+        return results
+    
+@TRANSFORMS.register_module()
+class HorizontalFlipAll(object):
+    '''
+    NuScenes only!
+    '''
+    def __init__(self, location = 'singapore', new2old=[0,2,1,3,5,4]):
+        self.location = location
+        self.R = np.identity(4)
+        self.R[1,1] = -1
+        # new2old is equal to old2new
+        # We assert that img1/2 and img4/5 is front[left/right], back[left/right]
+        self.imgPermute = PermuteImages(new2old=new2old)
+    def __call__(self, results):
+        if self.location not in results['city_name']:
+            return results
+        # step 1: flip lidar points, lidar2cam, gt box, add trans_mat
+        results['gt_bboxes_3d'].flip('horizontal')
+        results['lidar2cam'] = np.array(results['lidar2cam']) @ self.R
+        results['trans_mat'] = self.R @ results.get('trans_mat',np.identity(4))
+        # step 2: flip image, flip cam2img
+        assert type(results['img']) == list
+        imgs = results['img']
+        c2i = np.array(results['cam2img'])
+        for i in range(len(imgs)):
+            imgs[i] = mmcv.imflip(imgs[i],direction='horizontal')
+            # xfx' + zcx' = z(1600-u)
+            # xfx  + zcx  = zu
+            # ==> 1600 = x/z(fx'+fx) + cx' + cx
+            # ==> fx' = -fx, cx' = 1600 - cx
+            c2i[i][0,0] = -c2i[i][0,0]
+            c2i[i][0,2] = imgs[i].shape[1] - c2i[i][0,2]
+        results['cam2img'] = c2i
+        results['img_flip'] = True
+        # step 3: permute image order, but skip it if under mono detection
+        if len(results['img']) > 1:
+            results = self.imgPermute(results)
         return results
 
 @TRANSFORMS.register_module()

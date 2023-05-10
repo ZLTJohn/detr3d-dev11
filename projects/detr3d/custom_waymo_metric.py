@@ -15,6 +15,8 @@ from waymo_open_dataset import label_pb2
 from waymo_open_dataset.protos import metrics_pb2
 from mmengine.structures import BaseDataElement
 import copy
+from mmdet3d.evaluation.metrics import NuScenesMetric
+from mmengine import load
 # refer to work_dirs_dev11/NusResEpoch2x/20230106_232132/20230106_232132.log
 # more checks are needed for this module
 @METRICS.register_module()
@@ -34,6 +36,11 @@ class CustomWaymoMetric(BaseMetric):
                  collect_device: str = 'cpu',
                  classes: list = ['Car', 'Pedestrian', 'Cyclist'],
                  prefix = 'Waymo',
+                 work_dir = None,
+                 format_only = False,
+                 save_name = None,
+                 timestamp2context = None,
+                 evaluator = 'native',
                  metainfo = None,  # the class names and order of gt labels and pred (when is_waymo_*=False)
                  is_waymo_pred=True): # whether the pred input is in waymo_format
 
@@ -41,6 +48,16 @@ class CustomWaymoMetric(BaseMetric):
         self.classes = classes
         self.metainfo = metainfo
         self.is_waymo_pred = is_waymo_pred
+        self.work_dir = work_dir
+        self.format_only = format_only
+        self.save_name = save_name
+        if self.format_only:
+            assert self.work_dir is not None
+            self.ts2context = mmengine.load(timestamp2context)
+        if evaluator == 'native':
+            self.evaluator_type = Waymo_Evaluator_native
+        else:
+            self.evaluator_type = Waymo_Evaluator
         super().__init__(collect_device=collect_device)
         self.k2w_cls_map = {
             'Car': label_pb2.Label.TYPE_VEHICLE,
@@ -69,10 +86,13 @@ class CustomWaymoMetric(BaseMetric):
         for data_sample in data_samples:
             result = dict()
             result['city_name'] = data_sample.get('city_name')
-            result['dataset_name'] = data_sample['dataset_name']
+            result['dataset_name'] = data_sample.get('dataset_name','unknown_dataset')#TODO: add infer_dataset_name
             result['pred_instances_3d'] = data_sample['pred_instances_3d']
             result['sample_idx'] = data_sample['sample_idx']
             result['gt_instances'] = data_sample['gt_instances_3d']
+            if self.format_only:
+                result['timestamp'] = data_sample['timestamp'] # waymo
+                result['context_name'] = self.ts2context[result['timestamp']]
             # result['num_views'] = data_sample['num_views']
             # result['token'] = data_sample['eval_ann_info'].get('token') # nusc
             # result['timestamp'] = data_sample['eval_ann_info'].get('timestamp') # waymo
@@ -83,21 +103,35 @@ class CustomWaymoMetric(BaseMetric):
             Args:
                 results: gathered results from self.results in all process
         """
-        logger: MMLogger = MMLogger.get_current_instance()
-        eval_tmp_dir = tempfile.TemporaryDirectory()
-
-        gt_file = osp.join(eval_tmp_dir.name, 'gt.bin')
-        pred_file = osp.join(eval_tmp_dir.name, 'pred.bin')
-        waymo_evaluator = Waymo_Evaluator_native(self.classes, self.k2w_cls_map)
-        metric_dict = waymo_evaluator.waymo_evaluate(gt_file, pred_file, results)
-        del waymo_evaluator
-        eval_tmp_dir.cleanup()
-        return metric_dict
+        if self.format_only:
+            if self.save_name == None:
+                from time import time
+                _ = str(time())
+                pred_file = osp.join(self.work_dir, 'results_'+_+'.bin')
+            else:
+                pred_file = osp.join(self.work_dir, self.save_name+'.bin')
+            waymo_formatter = Waymo_Evaluator(self.classes, self.k2w_cls_map, format_only = True)
+            waymo_formatter.to_waymo_obj(results, pred_file, 'pred_instances_3d')
+            return {}
+        else:
+            logger: MMLogger = MMLogger.get_current_instance()
+            eval_tmp_dir = tempfile.TemporaryDirectory()
+            if not self.is_waymo_pred:
+                LC = LabelConverter(self.metainfo)
+                LC.convert(results, 'pred_instances_3d', self.is_waymo_pred)
+            gt_file = osp.join(eval_tmp_dir.name, 'gt.bin')
+            pred_file = osp.join(eval_tmp_dir.name, 'pred.bin')
+            waymo_evaluator = self.evaluator_type(self.classes, self.k2w_cls_map)
+            metric_dict = waymo_evaluator.waymo_evaluate(gt_file, pred_file, results)
+            del waymo_evaluator
+            eval_tmp_dir.cleanup()
+            return metric_dict
 
 class Waymo_Evaluator:
-    def __init__(self, classes, k2w_cls_map) -> None:
+    def __init__(self, classes, k2w_cls_map, format_only = False) -> None:
         self.classes = classes
         self.k2w_cls_map = k2w_cls_map
+        self.format_only = format_only
         self.k2w_idx_map = []
         for i in range(len(self.classes)): 
             self.k2w_idx_map.append(self.k2w_cls_map[self.classes[i]])
@@ -130,8 +164,12 @@ class Waymo_Evaluator:
 
                 o = metrics_pb2.Object()
                 o.object.type = self.k2w_cls_map[class_name]
-                o.context_name = str(sample_idx)
-                o.frame_timestamp_micros = sample_idx
+                if self.format_only:
+                    o.context_name = result['context_name']
+                    o.frame_timestamp_micros = result['timestamp']
+                else:
+                    o.context_name = str(sample_idx)
+                    o.frame_timestamp_micros = sample_idx
                 if scores != None:
                     o.object.box.CopyFrom(box)
                     o.score = scores[i].item()
@@ -177,14 +215,14 @@ class Waymo_Evaluator_native(Waymo_Evaluator):
         prog_bar = mmengine.ProgressBar(len(results))
         for result in results:
             sample_idx = torch.tensor(int(result['sample_idx']))
-            gt_boxes = result[gt]['bboxes_3d'].tensor
+            gt_boxes = result[gt]['bboxes_3d'].tensor[:,:7]
             gt_boxes[:,2] += gt_boxes[:,5]/2
             gt_labels = result[gt]['labels_3d']
             difficulty = torch.tensor(label_pb2.Label.LEVEL_2)
 
-            pred_boxes = result[pred]['bboxes_3d'].tensor
+            pred_boxes = result[pred]['bboxes_3d'].tensor[:,:7]
             pred_boxes[:,2] += pred_boxes[:,5]/2
-            pred_labels = result[pred]['labels_3d']
+            pred_labels = torch.tensor(result[pred]['labels_3d'],dtype=torch.long)
             scores = result[pred].get('scores_3d')
 
             eval_dict['ground_truth_frame_id'].append(sample_idx.repeat(len(gt_labels)))
@@ -231,20 +269,20 @@ class Waymo_Evaluator_native(Waymo_Evaluator):
         return output
 
 @METRICS.register_module()
-class JointMetric(CustomWaymoMetric):
+class JointMetric(CustomWaymoMetric):   # TODO: split stats module from metric
     def __init__(self, 
                  per_location = False, 
                  brief_metric = False,
                  brief_split = False,
-                 work_dir = None,
+                 output_stats = False,
                  **kwargs):
         super().__init__(**kwargs)
         self.prefix = None
         self.per_location = per_location
         self.brief_metric = brief_metric
         self.brief_split = brief_split
-        self.work_dir = work_dir
-        if work_dir is not None:
+        self.output_stats = output_stats
+        if self.work_dir is not None:
             self.brief_metric_file = open(osp.join(self.work_dir, 'brief_metric.txt'),'w')
         else:
             self.brief_metric_file = None
@@ -300,7 +338,17 @@ class JointMetric(CustomWaymoMetric):
                 results_split[cityname].append(copy.deepcopy(frame))
 
         return results_split
-            
+
+    def derive_stats(self, results):
+        gt = 'gt_instances'
+        box = []
+        for result in results:
+            gt_boxes = result[gt]['bboxes_3d'].bottom_center
+            box.append(gt_boxes)
+        box = torch.cat(box)
+        output = 'avg bottom xyz:\t'+ str(box.float().mean(0)) + '\tgt nums:\t'+str(box.shape)
+        return output
+
     def compute_metrics(self, results: list) -> Dict[str, float]:
         from time import time
         _ = time()
@@ -316,9 +364,12 @@ class JointMetric(CustomWaymoMetric):
         for dataset_type in results_split:
             if len(results_split[dataset_type]) == 0:
                 continue
+            stats_str=''
+            if self.output_stats:
+                stats_str = self.derive_stats(results_split[dataset_type])
             metrics = super().compute_metrics(results_split[dataset_type])
             brief_metric[dataset_type]=self.format_result(metrics)
-            frame_num[dataset_type]=len(results_split[dataset_type])
+            frame_num[dataset_type]= str(len(results_split[dataset_type])) + stats_str
             if not(self.brief_split and '_' in dataset_type):
                 for k, v in metrics.items():
                     all_metrics[dataset_type+'/'+k] = float(v)
@@ -347,6 +398,8 @@ class LabelConverter:
 
     def __init__(self, metainfo = None):
         self.waymo_class = ['Car', 'Pedestrian', 'Cyclist']
+        if isinstance(metainfo,dict):
+            metainfo = metainfo['classes']
         self.nusc_class = metainfo # fuck, they change order
         self.waymo2waymo = {i: i for i in self.waymo_class}
         self.nus2waymo = {
@@ -393,8 +446,6 @@ class LabelConverter:
                 new_inst[k] = instances[k][valid == 1]
             result[key] = new_inst
 
-from mmdet3d.evaluation.metrics import NuScenesMetric
-from mmengine import load
 @METRICS.register_module()
 class CustomNuscMetric(NuScenesMetric):
     def compute_metrics(self, results: List[dict]) -> Dict[str, float]:

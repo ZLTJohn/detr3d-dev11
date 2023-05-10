@@ -27,7 +27,8 @@ class DefaultFeatSampler:
     def project_ego2cam(self,
                         ref_pt: Tensor,
                         pc_range: List,
-                        img_metas: List[Dict]):
+                        img_metas: List[Dict],
+                        return_depth = False):
         '''
         Project normalized reference points to images according to projection matrix
         Args:
@@ -75,7 +76,10 @@ class DefaultFeatSampler:
                 & (pt_cam[..., 0:1] < 1.0)
                 & (pt_cam[..., 1:2] > 0.0)
                 & (pt_cam[..., 1:2] < 1.0))
-        return pt_cam, mask
+        if return_depth:
+            return pt_cam, mask, z
+        else:
+            return pt_cam, mask
     
     def forward(self,
                 mlvl_feats,
@@ -174,8 +178,9 @@ class GeoAwareFeatSampler(DefaultFeatSampler):
     def get_scale_factor(self, ref_pt, pc_range, img_metas):
         cam2refpt = self.CamCenters2Objects(ref_pt, pc_range, img_metas)
         scale_factor = torch.ones_like(cam2refpt)# B N Q
+        eps = 1e-5 * torch.ones_like(cam2refpt)
         if self.base_dist != -1:
-            scale_factor *= self.base_dist / cam2refpt
+            scale_factor *= self.base_dist / torch.maximum(cam2refpt,eps)
         if self.base_fxfy != -1:
             # fxfy focals in [B N,1]
             cams_fxfy = ref_pt.new_tensor(self.get_fxfy(img_metas))
@@ -248,6 +253,39 @@ class CameraAwareFeatSampler(GeoAwareFeatSampler):
         scale_factor = (ego2refpt - self.virtual_cam_dist) / cam2refpt
         return scale_factor
 
+# TODO: make it compatible with Multi-view. Actually it is easy since you can just use 'z' in project_ego_to_cam()
+@MODELS.register_module()
+class FrontCameraPoseAwareFeatSampler(GeoAwareFeatSampler):
+    '''
+    Currently only support front camera modeling.
+    '''
+    def CamCenters2Objects(self, ref_pt, pc_range, img_metas, refpt_dist=False):
+        '''
+        Calculate distance between ref_pt and different camera centers
+        Args:
+            ref_pt: Normalized reference points
+            pc_range: perception range
+            img_metas: metainfos that contains 'lidar2img'
+            refpt_dist: whether to return distance from ego to refpt,
+                default to False
+        Return:
+            cam2refpt: in shape [B,N,Q]
+            ego2refpt (optional): in shape [B,N,Q]
+        '''
+        lidar2cam = [meta['lidar2cam'] for meta in img_metas]
+        lidar2cam = np.asarray(lidar2cam)
+        cam2lidar = np.linalg.inv(lidar2cam)
+        CamCenters = ref_pt.new_tensor(cam2lidar[:,:,0,-1]).unsqueeze(2)   # B N 1
+        N = CamCenters.shape[1]
+        ref_pt = self.denormalize(ref_pt, pc_range)
+        ref_pt = ref_pt[...,0]
+        ref_pt = ref_pt.unsqueeze(1).repeat(1,N,1)    # B 1 Q
+        cam2refpt = (ref_pt - CamCenters)  # B N Q
+        if refpt_dist == True:
+            ego2refpt = torch.norm(ref_pt,dim=-1)
+            return cam2refpt, ego2refpt
+        else:
+            return cam2refpt
 
 # def CamCenters2Objects(ref_pt, img_metas):
 #     lidar2cam = [meta['lidar2cam'] for meta in img_metas]

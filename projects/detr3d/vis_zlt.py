@@ -15,7 +15,7 @@ import torchvision.utils as vutils
 from av2.structures.sweep import Sweep
 from mmdet3d.structures import LiDARInstance3DBoxes
 from mmengine.structures import InstanceData
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageOps
 from mmdet3d.structures.bbox_3d.utils import get_lidar2img
 
 from .detr3d_featsampler import DefaultFeatSampler, GeoAwareFeatSampler
@@ -31,7 +31,8 @@ class visualizer_zlt():
                  debug_name=None,
                  draw_box=True,
                  vis_tensor=True,
-                 draw_score_type=True,
+                 draw_score=True,
+                 draw_type=True,
                  ROIsampling=None):
         # TODO: add label details to BEV objects
         self.debug_dir = debug_dir
@@ -47,7 +48,8 @@ class visualizer_zlt():
             self.debug_name = str(time.time())
         else:
             self.debug_name = debug_name
-        self.draw_score_type = draw_score_type
+        self.draw_score = draw_score
+        self.draw_type = draw_type
     def infer_dataset_name(self,path):
         if type(path) == list:
             path = path[0]
@@ -69,6 +71,7 @@ class visualizer_zlt():
         
     def get_dataset_name(self, img_meta):
         self.ds_name = img_meta.get('dataset_name',None)
+        print(img_meta.get('city_name','unknown location'))
         if self.ds_name is None:
             self.ds_name = self.infer_dataset_name(img_meta['img_path'])
 
@@ -88,9 +91,12 @@ class visualizer_zlt():
         trans = img_meta.get('trans_mat', np.identity(4))
         pts_homo = (trans @ pts_homo.T).T
         return pts_homo
-    def load_imgs(self, img_paths):
+    def load_imgs(self, img_paths, img_meta=None):
         # imgs = [cv2.imread(path) for path in img_paths]
         imgs = [Image.open(path) for path in img_paths]
+        # if img_meta and img_meta.get('img_flip',False):
+        #     for i in range(len(imgs)):
+        #         imgs[i] = ImageOps.mirror(imgs[i])
         return imgs
 
     def get_dir(self, sample_idx):
@@ -176,6 +182,8 @@ class visualizer_zlt():
             instances_3d = self.toInstance(instances_3d)
         if type(img_meta) == list:
             img_meta = img_meta[0]
+        if 'ori_lidar2img' not in img_meta:
+            img_meta = self.add_lidar2img([img_meta])[0]
         img_paths = img_meta['img_path']
         if type(img_paths) != list:
             img_paths = [img_paths]
@@ -192,7 +200,7 @@ class visualizer_zlt():
             if img_meta.get('lidar_path'):
                 pc = self.load_pts(img_meta, pts)
                 self.save_bev(pc, instances_3d, dirname, filename)
-            img_from_file = self.load_imgs(img_paths)
+            img_from_file = self.load_imgs(img_paths, img_meta)
             metacopy = copy(img_meta)
             metacopy['lidar2img'] = metacopy['ori_lidar2img']
             metacopy['cam2img'] = metacopy['ori_cam2img']
@@ -332,9 +340,12 @@ class visualizer_zlt():
                          360,
                          width=4,
                          fill=color)
-                if self.ROIsampling is None and self.draw_score_type:
-                    score_type = str(round(float(instances_3d.scores_3d[j]),3))+\
-                                'Cls'+str(int(instances_3d.labels_3d[j]))
+                score_type = ''
+                if self.draw_score:
+                    score_type += str(round(float(instances_3d.scores_3d[j]),3))
+                if self.draw_type:
+                    score_type += 'Cls'+str(int(instances_3d.labels_3d[j]))
+                if self.ROIsampling is None and score_type!='':
                     draw.text((x + r, y + r), score_type, color, font=font)
 
     def draw_img_bbox(self, draw, corners_cam, mask):
@@ -417,9 +428,12 @@ class visualizer_zlt():
             if i % 10 == 0:
                 color = self.get_color()
                 color_front = self.get_color()
-            if self.draw_score_type:
-                score_type = str(int(instances_3d.labels_3d[i]))
-                # + str(round(float(instances_3d.scores_3d[i]),2))[1:]
+            score_type = ''
+            if self.draw_type:
+                score_type += str(int(instances_3d.labels_3d[i]))
+            if self.draw_score:
+                score_type += str(round(float(instances_3d.scores_3d[i]),2))
+            if score_type != '':
                 draw.text((x + r - 3, y + r - 3), score_type, color, font=font)
             draw.arc([(x - r, y - r), (x + r, y + r)],
                      0,
