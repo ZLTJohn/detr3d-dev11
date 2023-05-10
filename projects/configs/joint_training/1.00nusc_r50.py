@@ -53,7 +53,7 @@ waymo_val_interval = 1
 # load_interval_factor = load_interval_type['full']
 input_modality = dict(use_lidar=False, # True if debug_vis
                       use_camera=True)
-work_dir = './work_dirs_joint/1.00nusc_r50'
+work_dir = './work_dirs_joint/debug'
 
 argo2_name_map = {
     'REGULAR_VEHICLE': 'Car',
@@ -356,7 +356,7 @@ val_dataloader = dict(
     dataset=argnuway_val)
 test_dataloader = val_dataloader
 
-val_evaluator = dict(type = 'JointMetric')
+val_evaluator = dict(type = 'JointMetric',per_location=True, work_dir=work_dir)
 test_evaluator = val_evaluator
 
 # learning rate
