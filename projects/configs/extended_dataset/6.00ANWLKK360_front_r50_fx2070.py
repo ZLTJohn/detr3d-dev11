@@ -51,7 +51,7 @@ img_scale_factor_lyft = 1.0
 img_size_kitti = (1242, 375)
 img_size_K360 = (1408, 376)
 # img_size_lyft = (1920,1080) and (1224,1024)
-evaluation_interval = 24 # epochs
+evaluation_interval = 12 # epochs
 # load_from = 'ckpts/'
 argo2_type = 'Argo2Dataset'
 argo2_data_root = 'data/argo2/'
@@ -94,11 +94,11 @@ K360_train_pkl = 'kitti360_infos_train.pkl' # 40000 frame
 K360_train_interval = 1
 K360_val_pkl = 'kitti360_infos_val.pkl' # 10000 frame
 K360_val_interval = 5
-
+focal_length = 2070
 # load_interval_factor = load_interval_type['part']
 input_modality = dict(use_lidar=True, # True if debug_vis
                       use_camera=True)
-work_dir = './work_dirs_extended/6.00ANWLKK360_front_r50_fullres_doublecheck'
+work_dir = './work_dirs_extended/6.00ANWLKK360_front_r50_fx2070'
 # resume = True
 argo2_name_map = {
     'REGULAR_VEHICLE': 'Car',
@@ -256,12 +256,6 @@ model = dict(
             pc_range=point_cloud_range))))
 
 #dataset
-argo2_test_transforms = [
-    dict(type='RandomResize3D',
-         scale=img_size_argo2,
-         ratio_range=(1., 1.),
-         keep_ratio=False)
-]
 argo2_pipeline_default = [
     dict(type='Argo2LoadMultiViewImageFromFiles', to_float32=True, num_views=argo2_num_views),
     dict(type='filename2img_path'),
@@ -269,13 +263,13 @@ argo2_pipeline_default = [
     dict(type='ObjectRangeFilter', point_cloud_range=point_cloud_range),
     dict(type='ObjectNameFilter', classes=argo2_class_names), # Deprecated now
     dict(type='ProjectLabelToWaymoClass', class_names = argo2_class_names, name_map = argo2_name_map),
+    dict(type='Ksync',fx = focal_length),
 ]
 argo2_train_pipeline = argo2_pipeline_default + [
-    dict(type='MultiViewWrapper', transforms=[dict(type='PhotoMetricDistortion3D')] + argo2_test_transforms),
+    dict(type='MultiViewWrapper', transforms=[dict(type='PhotoMetricDistortion3D')]),
     dict(type='Pack3DDetInputsExtra', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
 ]
 argo2_test_pipeline = [dict(type='evalann2ann')] + argo2_pipeline_default + [
-    dict(type='MultiViewWrapper', transforms=argo2_test_transforms),
     dict(type='Pack3DDetInputsExtra', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
 ]
 
@@ -316,13 +310,13 @@ nusc_pipeline_default = [
     dict(type='RotateScene_neg90'),
     dict(type='ObjectRangeFilter', point_cloud_range=point_cloud_range),
     dict(type='ProjectLabelToWaymoClass', class_names = nusc_class_names),
+    dict(type='Ksync',fx = focal_length),
 ]
 nusc_train_pipeline = nusc_pipeline_default + [
-    dict(type='MultiViewWrapper', transforms=[dict(type='PhotoMetricDistortion3D')] + nusc_test_transforms),
+    dict(type='MultiViewWrapper', transforms=[dict(type='PhotoMetricDistortion3D')]),
     dict(type='Pack3DDetInputsExtra', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
 ]
 nusc_test_pipeline = [dict(type='evalann2ann')] + nusc_pipeline_default + [
-    dict(type='MultiViewWrapper', transforms=nusc_test_transforms),
     dict(type='Pack3DDetInputsExtra', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
 ]
 
@@ -370,14 +364,14 @@ waymo_pipeline_default = [
     dict(type='LoadAnnotations3D', with_bbox_3d=True, with_label_3d=True, with_attr_label=False),
     dict(type='ObjectRangeFilter', point_cloud_range=point_cloud_range),
     dict(type='ObjectNameFilter', classes=waymo_class_names),
+    dict(type='Ksync',fx = focal_length),
 ]
 
 waymo_train_pipeline = waymo_pipeline_default + [
-    dict(type='MultiViewWrapper', transforms=[dict(type='PhotoMetricDistortion3D')] + waymo_test_transforms),
+    dict(type='MultiViewWrapper', transforms=[dict(type='PhotoMetricDistortion3D')]),
     dict(type='Pack3DDetInputsExtra', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
 ]
 waymo_test_pipeline = [dict(type='evalann2ann')] + waymo_pipeline_default + [
-    dict(type='MultiViewWrapper', transforms=waymo_test_transforms),
     dict(type='Pack3DDetInputsExtra', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
 ]
 
@@ -426,14 +420,14 @@ lyft_pipeline_default = [
     dict(type='RotateScene_neg90'),
     dict(type='ObjectRangeFilter', point_cloud_range=point_cloud_range),
     dict(type='ProjectLabelToWaymoClass', class_names = lyft_class_names, name_map = lyft_name_map),
+    dict(type='Ksync',fx = focal_length),
 ]
 lyft_train_pipeline = lyft_pipeline_default + [
-    dict(type='MultiViewWrapper', transforms=[dict(type='PhotoMetricDistortion3D')] + lyft_test_transforms),
+    dict(type='MultiViewWrapper', transforms=[dict(type='PhotoMetricDistortion3D')]),
     # dict(type='Ksync',fx = 1034),
     dict(type='Pack3DDetInputsExtra', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
 ]
 lyft_test_pipeline = [dict(type='evalann2ann')] + lyft_pipeline_default + [
-    dict(type='MultiViewWrapper', transforms=lyft_test_transforms),
     # dict(type='Ksync',fx = 1034),
     dict(type='Pack3DDetInputsExtra', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
 ]
@@ -480,14 +474,14 @@ kitti_pipeline_default = [
     dict(type='ObjectRangeFilter', point_cloud_range=point_cloud_range),
     dict(type='ObjectNameFilter', classes=kitti_class_names),
     dict(type='ProjectLabelToWaymoClass', class_names = kitti_class_names, name_map = kitti_name_map),
+    dict(type='Ksync',fx = focal_length),
 ]
 
 kitti_train_pipeline = kitti_pipeline_default + [
-    dict(type='MultiViewWrapper', transforms=[dict(type='PhotoMetricDistortion3D')] + kitti_test_transforms),
+    dict(type='MultiViewWrapper', transforms=[dict(type='PhotoMetricDistortion3D')]),
     dict(type='Pack3DDetInputsExtra', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
 ]
 kitti_test_pipeline = [dict(type='evalann2ann')] + kitti_pipeline_default + [
-    dict(type='MultiViewWrapper', transforms=kitti_test_transforms),
     dict(type='Pack3DDetInputsExtra', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
 ]
 
@@ -531,13 +525,13 @@ K360_pipeline_default = [
     dict(type='ObjectRangeFilter', point_cloud_range=point_cloud_range),
     dict(type='ObjectNameFilter', classes=K360_class_names),
     dict(type='ProjectLabelToWaymoClass', class_names = K360_class_names, name_map = K360_name_map),
+    dict(type='Ksync',fx = focal_length),
 ]
 K360_train_pipeline = K360_pipeline_default + [
-    dict(type='MultiViewWrapper', transforms=[dict(type='PhotoMetricDistortion3D')] + K360_test_transforms),
+    dict(type='MultiViewWrapper', transforms=[dict(type='PhotoMetricDistortion3D')]),
     dict(type='Pack3DDetInputsExtra', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
 ]
 K360_test_pipeline = [dict(type='evalann2ann')] + K360_pipeline_default + [
-    dict(type='MultiViewWrapper', transforms=K360_test_transforms),
     dict(type='Pack3DDetInputsExtra', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
 ]
 K360_data_prefix = dict()

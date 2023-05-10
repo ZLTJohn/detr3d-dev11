@@ -51,7 +51,7 @@ img_scale_factor_lyft = 1.0
 img_size_kitti = (1242, 375)
 img_size_K360 = (1408, 376)
 # img_size_lyft = (1920,1080) and (1224,1024)
-evaluation_interval = 24 # epochs
+evaluation_interval = 12 # epochs
 # load_from = 'ckpts/'
 argo2_type = 'Argo2Dataset'
 argo2_data_root = 'data/argo2/'
@@ -90,16 +90,16 @@ kitti_val_interval = 1
 
 K360_type = 'Kitti360Dataset'
 K360_data_root = 'data/kitti-360/'
-K360_train_pkl = 'kitti360_infos_train.pkl' # 40000 frame
+K360_train_pkl = 'kitti360_infos_train_CAM0CAM0.pkl' # 40000 frame
 K360_train_interval = 1
-K360_val_pkl = 'kitti360_infos_val.pkl' # 10000 frame
+K360_val_pkl = 'kitti360_infos_val_CAM0CAM0.pkl' # 10000 frame
 K360_val_interval = 5
 
 # load_interval_factor = load_interval_type['part']
 input_modality = dict(use_lidar=True, # True if debug_vis
                       use_camera=True)
-work_dir = './work_dirs_extended/6.00ANWLKK360_front_r50_fullres_doublecheck'
-# resume = True
+work_dir = './work_dirs_extended/6.00ANWLKK360_front_r50_fullres_ds_emb_egosync'
+resume = True
 argo2_name_map = {
     'REGULAR_VEHICLE': 'Car',
     'LARGE_VEHICLE': 'Car',
@@ -165,6 +165,7 @@ debug_vis_cfg = dict(debug_dir='debug/visualization',
 model = dict(
     type='DETR3D',
     use_grid_mask=True,
+    dataset_emb=6,
     # debug_vis_cfg=debug_vis_cfg,
     data_preprocessor=dict(type='Det3DDataPreprocessor',
                            **img_norm_cfg,
@@ -268,6 +269,7 @@ argo2_pipeline_default = [
     dict(type='LoadAnnotations3D', with_bbox_3d=True, with_label_3d=True, with_attr_label=False),
     dict(type='ObjectRangeFilter', point_cloud_range=point_cloud_range),
     dict(type='ObjectNameFilter', classes=argo2_class_names), # Deprecated now
+    dict(type='EgoTranslate', trans = 'FrontCam'),
     dict(type='ProjectLabelToWaymoClass', class_names = argo2_class_names, name_map = argo2_name_map),
 ]
 argo2_train_pipeline = argo2_pipeline_default + [
@@ -315,6 +317,7 @@ nusc_pipeline_default = [
     dict(type='ObjectNameFilter', classes=nusc_class_names),
     dict(type='RotateScene_neg90'),
     dict(type='ObjectRangeFilter', point_cloud_range=point_cloud_range),
+    dict(type='EgoTranslate', trans = 'FrontCam'),
     dict(type='ProjectLabelToWaymoClass', class_names = nusc_class_names),
 ]
 nusc_train_pipeline = nusc_pipeline_default + [
@@ -369,6 +372,7 @@ waymo_pipeline_default = [
     dict(type='filename2img_path'),
     dict(type='LoadAnnotations3D', with_bbox_3d=True, with_label_3d=True, with_attr_label=False),
     dict(type='ObjectRangeFilter', point_cloud_range=point_cloud_range),
+    dict(type='EgoTranslate', trans = 'FrontCam'),
     dict(type='ObjectNameFilter', classes=waymo_class_names),
 ]
 
@@ -424,6 +428,7 @@ lyft_pipeline_default = [
     dict(type='ObjectNameFilter', classes=lyft_class_names),
     dict(type='RotateScene_neg90'),
     dict(type='RotateScene_neg90'),
+    dict(type='EgoTranslate', trans = 'FrontCam'),
     dict(type='ObjectRangeFilter', point_cloud_range=point_cloud_range),
     dict(type='ProjectLabelToWaymoClass', class_names = lyft_class_names, name_map = lyft_name_map),
 ]
@@ -479,6 +484,7 @@ kitti_pipeline_default = [
     dict(type='LoadAnnotations3D', with_bbox_3d=True, with_label_3d=True, with_attr_label=False),
     dict(type='ObjectRangeFilter', point_cloud_range=point_cloud_range),
     dict(type='ObjectNameFilter', classes=kitti_class_names),
+    dict(type='EgoTranslate', trans = 'FrontCam'),
     dict(type='ProjectLabelToWaymoClass', class_names = kitti_class_names, name_map = kitti_name_map),
 ]
 
@@ -530,6 +536,7 @@ K360_pipeline_default = [
     dict(type='LoadAnnotations3D', with_bbox_3d=True, with_label_3d=True, with_attr_label=False),
     dict(type='ObjectRangeFilter', point_cloud_range=point_cloud_range),
     dict(type='ObjectNameFilter', classes=K360_class_names),
+    dict(type='EgoTranslate', trans = 'FrontCam'),
     dict(type='ProjectLabelToWaymoClass', class_names = K360_class_names, name_map = K360_name_map),
 ]
 K360_train_pipeline = K360_pipeline_default + [
@@ -630,3 +637,4 @@ vis_backends = [dict(type='TensorboardVisBackend')]
 visualizer = dict(type='Det3DLocalVisualizer',
                   vis_backends=vis_backends,
                   name='visualizer')
+find_unused_parameters = True 
