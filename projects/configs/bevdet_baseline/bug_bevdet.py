@@ -1,29 +1,44 @@
+# Copyright (c) Phigent Robotics. All rights reserved.
+
+# mAP: 0.2828
+# mATE: 0.7734
+# mASE: 0.2884
+# mAOE: 0.6976
+# mAVE: 0.8637
+# mAAE: 0.2908
+# NDS: 0.3500
+#
+# Per-class results:
+# Object Class	AP	ATE	ASE	AOE	AVE	AAE
+# car	0.517	0.533	0.161	0.123	0.909	0.235
+# truck	0.226	0.745	0.232	0.222	0.848	0.268
+# bus	0.305	0.797	0.220	0.192	1.982	0.355
+# trailer	0.101	1.107	0.230	0.514	0.536	0.068
+# construction_vehicle	0.039	1.105	0.501	1.402	0.119	0.386
+# pedestrian	0.318	0.805	0.305	1.341	0.826	0.650
+# motorcycle	0.216	0.783	0.286	0.977	1.224	0.273
+# bicycle	0.203	0.712	0.304	1.354	0.465	0.090
+# traffic_cone	0.499	0.547	0.347	nan	nan	nan
+# barrier	0.404	0.599	0.297	0.153	nan	nan
 _base_ = [
+    # 'mmdet3d::_base_/datasets/nus-3d.py', 
           'mmdet3d::_base_/default_runtime.py',]
 # Global
 # If point cloud range is changed, the models should also change their point
 # cloud range accordingly
-point_cloud_range = [-51.2, -51.2, -5.0, 51.2, 51.2, 4.0]
+point_cloud_range = [-51.2, -51.2, -5.0, 51.2, 51.2, 3.0]
 # For nuScenes we usually do 10-class detection
-nusc_class_names = [
+class_names = [
     'car', 'truck', 'construction_vehicle', 'bus', 'trailer', 'barrier',
     'motorcycle', 'bicycle', 'pedestrian', 'traffic_cone'
 ]
 custom_imports = dict(imports=['projects.bevdet'])
 default_scope = 'mmdet3d'
-nusc_type = 'CustomNusc'
-nusc_root = 'data/nus_v2/'
-nusc_train_pkl = 'nuscenes_infos_train_part.pkl'
-nusc_val_pkl = 'nuscenes_infos_val_part.pkl'
-nusc_scale = (704, 396)
-nusc_crop_wh=(704, 256)
-nusc_crop_hw=(256, 704)
-work_dir = 'work_dirs_bevdet/0.33n_r50'
 # Model
 grid_config = {
     'x': [-51.2, 51.2, 0.8],
     'y': [-51.2, 51.2, 0.8],
-    'z': [-5, 4, 9],
+    'z': [-5, 3, 8],
     'depth': [1.0, 60.0, 1.0],
 }
 
@@ -65,8 +80,7 @@ model = dict(
     img_view_transformer=dict(
         type='LSSViewTransformer',
         grid_config=grid_config,
-        input_size=[nusc_crop_hw],
-        dataset_names = ['nuscenes'],
+        input_size=(256, 704),
         downsample=16,
         in_channels=256,
         out_channels=64,
@@ -88,13 +102,18 @@ model = dict(
     img_bev_encoder_neck=dict(
         type='LSSFPN', in_channels=64 * 8 + 64 * 2, out_channels=256),
     pts_bbox_head=dict(
-        type='CustomCenterHead',
+        type='CenterHead',
         in_channels=256,
         tasks=[
-            dict(num_class=3, class_names=['Car', 'Pedestrian', 'Cyclist']),
+            dict(num_class=10, class_names=['car', 'truck',
+                                            'construction_vehicle',
+                                            'bus', 'trailer',
+                                            'barrier',
+                                            'motorcycle', 'bicycle',
+                                            'pedestrian', 'traffic_cone']),
         ],
         common_heads=dict(
-            reg=(2, 2), height=(1, 2), dim=(3, 2), rot=(2, 2)),
+            reg=(2, 2), height=(1, 2), dim=(3, 2), rot=(2, 2), vel=(2, 2)),
         share_conv_channel=64,
         bbox_coder=dict(
             type='CenterPointBBoxCoder',
@@ -104,7 +123,7 @@ model = dict(
             score_threshold=0.1,
             out_size_factor=8,
             voxel_size=voxel_size[:2],
-            code_size=7),
+            code_size=9),
         separate_head=dict(
             type='SeparateHead', init_bias=-2.19, final_kernel=3),
         loss_cls=dict(type='mmdet.GaussianFocalLoss', reduction='mean'),
@@ -122,7 +141,7 @@ model = dict(
             gaussian_overlap=0.1,
             max_objs=500,
             min_radius=2,
-            code_weights=[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0])),
+            code_weights=[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.2, 0.2])),
     test_cfg=dict(
         pts=dict(
             point_cloud_range=point_cloud_range,
@@ -138,7 +157,6 @@ model = dict(
             pre_max_size=1000,
             post_max_size=83,
             nms_thr=0.2)))
-
 # Data
 bev_aug = [dict(type='GlobalRotScaleTrans',
                 rot_range=[-0.3925, 0.3925],
@@ -155,29 +173,34 @@ bevdet_input_default = [
     dict(type='Pack3DDetInputsBEVDet', keys=['img', 'gt_bboxes_3d', 'gt_labels_3d'])
     ]
 
+dataset_type = 'CustomNusc'
+data_root = 'data/nus_v2/'
+nusc_scale = (704, 396)
+crop_wh=(704, 256)
+crop_hw=(256, 704)
 # The order of image-view augmentation should be
 # resize -> crop -> pad -> flip -> rotate
-nusc_img_aug_training = [dict(type='MultiViewWrapper',
+img_aug_training = [dict(type='MultiViewWrapper',
     transforms=[
         dict(type='RandomResize', ratio_range=(0.864, 1.25), scale=nusc_scale),
         dict(type='RangeLimitedRandomCrop',
             relative_x_offset_range=(0.0, 1.0),
             relative_y_offset_range=(1.0, 1.0),
-            crop_size=nusc_crop_hw),
-        dict(type='Pad', size=nusc_crop_wh),
+            crop_size=crop_hw),
+        dict(type='Pad', size=crop_wh),
         dict(type='RandomFlip', prob=0.5),
         dict(type='RandomRotate', range=(-5.4, 5.4), 
             img_border_value=0, level=1, prob=1.0)],
     collected_keys=['scale_factor', 'crop', 'pad_shape', 'flip', 'rotate'])]
 
-nusc_img_aug_testing = [dict(type='MultiViewWrapper',
+img_aug_testing = [dict(type='MultiViewWrapper',
     transforms=[
         dict(type='RandomResize',ratio_range=(1.091, 1.091),scale=nusc_scale),
         dict(type='RangeLimitedRandomCrop',
             relative_x_offset_range=(0.5, 0.5),
             relative_y_offset_range=(1.0, 1.0),
-            crop_size=nusc_crop_hw),
-        dict(type='Pad', size=nusc_crop_wh),
+            crop_size=crop_hw),
+        dict(type='Pad', size=crop_wh),
         dict(type='RandomFlip', prob=0.0),
         dict(type='RandomRotate', range=(-0.0, 0.0),
             img_border_value=0, level=1, prob=0.0)],
@@ -185,24 +208,24 @@ nusc_img_aug_testing = [dict(type='MultiViewWrapper',
 nusc_input_default = [
     dict(type='LoadPointsFromFile',coord_type='LIDAR', load_dim=5, use_dim=5),
     dict(type='LoadAnnotations3D', with_bbox_3d=True, with_label_3d=True, with_attr_label=False),
-    dict(type='ProjectLabelToWaymoClass', class_names = nusc_class_names),
+    dict(type='ProjectLabelToWaymoClass', class_names = class_names),
 ]
 # To avoid 'flip' information conflict between RandomFlip and RandomFlip3D,
 # 3D space augmentation should be conducted before loading images and
 # conducting image-view space augmentation.
-nusc_train_pipeline = [
+train_pipeline = [
     *nusc_input_default,
     *bev_aug,
     dict(type='LoadMultiViewImageFromFiles', to_float32=True),
-    *nusc_img_aug_training,
+    *img_aug_training,
     *bevdet_input_default
 ]
 
-nusc_test_pipeline = [
+test_pipeline = [
     dict(type='evalann2ann'),
     *nusc_input_default,
     dict(type='LoadMultiViewImageFromFiles', to_float32=True),
-    *nusc_img_aug_testing,
+    *img_aug_testing,
     *bevdet_input_default
     ]
 
@@ -213,8 +236,8 @@ input_modality = dict(
     use_map=False,
     use_external=False)
 
-nusc_metainfo = dict(classes=nusc_class_names)
-nusc_data_prefix = dict(pts='samples/LIDAR_TOP',
+metainfo = dict(classes=class_names)
+data_prefix = dict(pts='samples/LIDAR_TOP',
                    sweeps='sweeps/LIDAR_TOP',
                    CAM_FRONT='samples/CAM_FRONT',
                    CAM_FRONT_RIGHT='samples/CAM_FRONT_RIGHT',
@@ -222,53 +245,52 @@ nusc_data_prefix = dict(pts='samples/LIDAR_TOP',
                    CAM_BACK='samples/CAM_BACK',
                    CAM_BACK_LEFT='samples/CAM_BACK_LEFT',
                    CAM_BACK_RIGHT='samples/CAM_BACK_RIGHT',)
-nusc_train = dict(
-        type=nusc_type,
-        data_root=nusc_root,
-        ann_file=nusc_train_pkl,
-        pipeline=nusc_train_pipeline,
-        load_type='frame_based',
-        metainfo=nusc_metainfo,
-        modality=input_modality,
-        test_mode=False,
-        data_prefix=nusc_data_prefix,
-        with_velocity=False,
-        box_type_3d='LiDAR')
-nusc_test = dict(
-        type=nusc_type,
-        data_root=nusc_root,
-        ann_file=nusc_val_pkl,
-        load_type='frame_based',
-        pipeline=nusc_test_pipeline,
-        metainfo=nusc_metainfo,
-        modality=input_modality,
-        test_mode=True,
-        data_prefix=nusc_data_prefix,
-        with_velocity=False,
-        box_type_3d='LiDAR')
 train_dataloader = dict(
     batch_size=8,
     num_workers=4,
     persistent_workers=False,
     drop_last=False,
     sampler=dict(type='DefaultSampler', shuffle=True),
-    dataset=nusc_train)
+    dataset=dict(
+        type=dataset_type,
+        data_root=data_root,
+        ann_file='nuscenes_infos_train_part.pkl',
+        pipeline=train_pipeline,
+        load_type='frame_based',
+        metainfo=metainfo,
+        modality=input_modality,
+        test_mode=False,
+        data_prefix=data_prefix,
+        with_velocity=False,
+        # we use box_type_3d='LiDAR' in kitti and nuscenes dataset
+        # and box_type_3d='Depth' in sunrgbd and scannet dataset.
+        box_type_3d='LiDAR'))
 
 val_dataloader = dict(
-    batch_size=2,
+    batch_size=1,
     num_workers=4,
     persistent_workers=False,
     drop_last=False,
     sampler=dict(type='DefaultSampler', shuffle=False),
-    dataset=nusc_test)
-
+    dataset=dict(type=dataset_type,
+                data_root=data_root,
+                ann_file='nuscenes_infos_val.pkl',
+                load_type='frame_based',
+                pipeline=test_pipeline,
+                metainfo=metainfo,
+                modality=input_modality,
+                test_mode=True,
+                data_prefix=data_prefix,
+                load_interval=1000000,
+                # with_velocity=False,
+                box_type_3d='LiDAR'))
 test_dataloader = val_dataloader
 
 # val_evaluator = dict(type='CustomNuscMetric',
 #                      data_root=data_root,
 #                      ann_file=data_root + 'nuscenes_infos_val.pkl',
 #                      metric='bbox')
-val_evaluator = dict(type='JointMetric',work_dir = work_dir)
+val_evaluator = dict(type='CustomWaymoMetric', is_waymo_pred=False, metainfo = metainfo)
 
 test_evaluator = val_evaluator
 # Optimizer

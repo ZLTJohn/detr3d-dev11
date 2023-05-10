@@ -247,7 +247,7 @@ nusc_test = dict(
         with_velocity=False,
         box_type_3d='LiDAR')
 train_dataloader = dict(
-    batch_size=8,
+    batch_size=1,
     num_workers=4,
     persistent_workers=False,
     drop_last=False,
@@ -255,7 +255,7 @@ train_dataloader = dict(
     dataset=nusc_train)
 
 val_dataloader = dict(
-    batch_size=2,
+    batch_size=1,
     num_workers=4,
     persistent_workers=False,
     drop_last=False,
