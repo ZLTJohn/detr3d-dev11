@@ -18,7 +18,7 @@ from mmengine.structures import InstanceData
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 from mmdet3d.structures.bbox_3d.utils import get_lidar2img
 
-from .detr3d_featsampler import DefaultFeatSampler, GeoAwareFeatSampler
+from ..detr3d.detr3d_featsampler import DefaultFeatSampler, GeoAwareFeatSampler
 
 # lidar_path, img_path
 class visualizer_zlt():

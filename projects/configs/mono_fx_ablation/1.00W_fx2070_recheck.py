@@ -8,7 +8,7 @@ load_interval_type = {
 }
 # meta configs
 default_scope = 'mmdet3d'
-custom_imports = dict(imports=['projects.detr3d'])
+custom_imports = dict(imports=['projects.detr3d','projects.cross_dataset'])
 point_cloud_range = [0, -51.2, -5.0, 51.2, 51.2, 4.0]
 waymo_class_names = ['Car', 'Pedestrian', 'Cyclist']
 nusc_class_names = [

@@ -6,7 +6,8 @@ import subprocess
 import numpy as np
 import tempfile
 waymo_brief = []
-for focal_length in [900,1200,1500,1780,2070,2400,2700,3000]:
+focals = [900,1200,1500,1780,2070,2400,2700,3000]
+for focal_length in focals:
     ckpt = '/home/zhenglt/mmdev11/detr3d-dev11/work_dirs_mono_ablate/1.00W_fx2070_recheck/epoch_24.pth'
     src_cfg = '/home/zhenglt/mmdev11/detr3d-dev11/projects/configs/mono_fx_ablation/1.00W_fx2070_recheck.py'
     work_dir = './work_dirs_mono_fx_ablation/1.00W_fx2070_evalA_fx{}'.format(focal_length)
@@ -28,7 +29,7 @@ for focal_length in [900,1200,1500,1780,2070,2400,2700,3000]:
     # get results
     with open(work_dir+'/brief_metric.txt','r') as result_file:
         lines = result_file.readlines()
-        
+        # TODO: not correct results
         items = lines[1].strip('\n').split(' ')
         waymo_brief.append(items[1][:-1])
 

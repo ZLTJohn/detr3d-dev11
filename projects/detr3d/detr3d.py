@@ -8,7 +8,7 @@ from mmdet3d.structures.bbox_3d.utils import get_lidar2img
 from torch import Tensor
 import torch.nn as nn
 from .grid_mask import GridMask
-from .vis_zlt import visualizer_zlt
+from ..cross_dataset.vis_zlt import visualizer_zlt
 
 
 @MODELS.register_module()
