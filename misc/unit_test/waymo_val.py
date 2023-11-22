@@ -2,6 +2,7 @@ import mmengine
 from mmdet3d.evaluation.metrics import WaymoMetric
 from mmdet3d.registry import METRICS
 from mmdet3d.utils import register_all_modules, replace_ceph_backend
+import os
 
 register_all_modules(init_default_scope=False)
 val_evaluator = dict(
@@ -15,5 +16,6 @@ val_evaluator = dict(
 
 metric = METRICS.build(val_evaluator)
 metric.dataset_meta = dict(classes=['Car', 'Pedestrian', 'Cyclist'])
+print(os.path.exists('debug/val.pkl'))
 results = mmengine.load('debug/val.pkl')
 print(metric.compute_metrics(results))
