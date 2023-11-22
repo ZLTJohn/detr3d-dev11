@@ -1,6 +1,7 @@
 from .argo2_dataset import Argo2Dataset
 from .argo2_metric import Argo2Metric
 from .custom_waymo_metric import CustomWaymoMetric, CustomNuscMetric, JointMetric
+from .custom_nusc_metric_native import NuScenesEval_native
 from .detr3d import DETR3D, debugDETR3D
 from .detr3d_head import DETR3DHead
 from .detr3d_transformer import (Detr3DCrossAtten, Detr3DTransformer,

@@ -98,7 +98,7 @@ K360_val_interval = 5
 # load_interval_factor = load_interval_type['part']
 input_modality = dict(use_lidar=True, # True if debug_vis
                       use_camera=True)
-work_dir = './work_dirs_extended/1.00W_front_r50_fullres'
+work_dir = './work_dirs_extended/1.00W_front_r50_fullres_debug0map'
 # resume = True
 argo2_name_map = {
     'REGULAR_VEHICLE': 'Car',
@@ -156,16 +156,16 @@ K360_name_map = {
 img_norm_cfg = dict(mean=[123.675, 116.28, 103.53], 
                     std=[58.395, 57.12, 57.375],
                     bgr_to_rgb=True)
-debug_vis_cfg = dict(debug_dir='debug/visualization',
+debug_vis_cfg = dict(debug_dir='debug/transfer',
                      gt_range=[0, 105],
                      pc_range=point_cloud_range,
                      vis_count=20,
-                     debug_name='mono_debug')
+                     debug_name='1.00W')
 # model_wrapper_cfg = dict(type = 'CustomMMDDP', static_graph = True)
 model = dict(
     type='DETR3D',
     use_grid_mask=True,
-    # debug_vis_cfg=debug_vis_cfg,
+    debug_vis_cfg=debug_vis_cfg,
     data_preprocessor=dict(type='Det3DDataPreprocessor',
                            **img_norm_cfg,
                            pad_size_divisor=32),
@@ -584,8 +584,8 @@ train_dataloader = dict(
     dataset=joint_train)
 val_dataloader = dict(
     **dataloader_default,
-    sampler=dict(type='DefaultSampler', shuffle=False),
-    dataset=joint_val)
+    sampler=dict(type='DefaultSampler', shuffle=True),
+    dataset=nusc_val)
 test_dataloader = val_dataloader
 
 val_evaluator = dict(type = 'JointMetric',

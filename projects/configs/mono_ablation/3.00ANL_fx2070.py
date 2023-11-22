@@ -99,7 +99,7 @@ focal_length = 2070
 input_modality = dict(use_lidar=True, # True if debug_vis
                       use_camera=True)
 work_dir = './work_dirs_mono_ablate/3.00ANL_fx2070'
-# resume = True
+resume = True
 argo2_name_map = {
     'REGULAR_VEHICLE': 'Car',
     'LARGE_VEHICLE': 'Car',

@@ -275,6 +275,7 @@ class JointMetric(CustomWaymoMetric):   # TODO: split stats module from metric
                  brief_metric = False,
                  brief_split = False,
                  output_stats = False,
+                 bev_mAP = False,
                  **kwargs):
         super().__init__(**kwargs)
         self.prefix = None
@@ -282,8 +283,10 @@ class JointMetric(CustomWaymoMetric):   # TODO: split stats module from metric
         self.brief_metric = brief_metric
         self.brief_split = brief_split
         self.output_stats = output_stats
+        self.bev_mAP = bev_mAP
+        self.eval_step = 0
         if self.work_dir is not None:
-            self.brief_metric_file = open(osp.join(self.work_dir, 'brief_metric.txt'),'w')
+            self.brief_metric_file = osp.join(self.work_dir, 'brief_metric.txt')
         else:
             self.brief_metric_file = None
 
@@ -294,14 +297,26 @@ class JointMetric(CustomWaymoMetric):   # TODO: split stats module from metric
             'OBJECT_TYPE_TYPE_CYCLIST_LEVEL_2/LET-mAP'
         ]
 
-    def format_result(self, metrics):
+    def splat_box(self,results: list):
+        for result in results:
+            for name in ['pred_instances_3d','gt_instances']:
+                pred = result[name]
+                predboxes = pred['bboxes_3d']
+                predboxes.tensor[:,2] = 0 - predboxes.tensor[:,5]/2
+                # let all the boxes to be centered on the ground
+        return results
+
+    def format_result(self, metrics, number_only = False):
         mAPs = []
         for t in self.target:
             for key in metrics:
                 if t in key:
                     mAPs.append(round(metrics[key]*100,1))
                     break
-        return "{}% ({}%/{}%/{}%)".format(*mAPs)
+        if number_only:
+            return mAPs
+        else:
+            return "{}% ({}%/{}%/{}%)".format(*mAPs)
 
     def split_per_dateset(self, results):
         datasets = []
@@ -311,16 +326,17 @@ class JointMetric(CustomWaymoMetric):   # TODO: split stats module from metric
                 datasets.append(dataset_name)
 
         datasets = sorted(datasets)
-        results_split = {ds: [] for ds in datasets}
-
+        self.dataset_names = datasets
+        results_split = {'all_dataset': []}
+        results_split.update({ds: [] for ds in datasets})
         for frame in results:
-            results_split[frame['dataset_name']].append(frame)
-
+            results_split['all_dataset'].append(frame)  # all dataset's setting is not right since frame# in different datasets are not equal
+            results_split[frame['dataset_name']].append(copy.deepcopy(frame))
+        
         return results_split
 
     def split_per_loc(self, results_split):
-        ds_names = list(results_split.keys())
-        for ds in ds_names:
+        for ds in self.dataset_names:
             whole = results_split[ds]
             cities = []
             for frame in whole:
@@ -352,12 +368,16 @@ class JointMetric(CustomWaymoMetric):   # TODO: split stats module from metric
     def compute_metrics(self, results: list) -> Dict[str, float]:
         from time import time
         _ = time()
+        self.eval_step += 1
         mmengine.dump(results,'results/results_{}.pkl'.format(_))
         print('save result pkl to results/results_{}.pkl'.format(_))
+        ds_suf = ''
+        if self.bev_mAP:
+            results = self.splat_box(results)
+            ds_suf = '_bev'
         results_split = self.split_per_dateset(results)
         if self.per_location:
             results_split = self.split_per_loc(results_split)
-
         all_metrics = {}
         brief_metric = {}
         frame_num = {}
@@ -368,17 +388,17 @@ class JointMetric(CustomWaymoMetric):   # TODO: split stats module from metric
             if self.output_stats:
                 stats_str = self.derive_stats(results_split[dataset_type])
             metrics = super().compute_metrics(results_split[dataset_type])
-            brief_metric[dataset_type]=self.format_result(metrics)
-            frame_num[dataset_type]= str(len(results_split[dataset_type])) + stats_str
-            if not(self.brief_split and '_' in dataset_type):
+            brief_metric[dataset_type+ds_suf]=self.format_result(metrics)
+            frame_num[dataset_type+ds_suf]= str(len(results_split[dataset_type])) + stats_str
+            if (not self.brief_split) or ('_' not in dataset_type) or 'all_dataset' in dataset_type:
                 for k, v in metrics.items():
-                    all_metrics[dataset_type+'/'+k] = float(v)
+                    all_metrics[dataset_type+ds_suf+'/'+k] = float(v)
 
         if self.brief_metric_file is not None:
-            print('--------------------------', file=self.brief_metric_file)
-            for i in brief_metric:
-                print('{}: {}\t {}'.format(i,brief_metric[i],frame_num[i]),file=self.brief_metric_file)
-
+            with open(self.brief_metric_file,'a') as f:
+                print('------------Evaluation {}--------------'.format(self.eval_step), file=f)
+                for i in brief_metric:
+                    print('{}: {}\t {}'.format(i,brief_metric[i],frame_num[i]),file=f)
         for i in brief_metric:
             print('{}: {}\t {}'.format(i,brief_metric[i],frame_num[i]))
         
@@ -388,6 +408,43 @@ class JointMetric(CustomWaymoMetric):   # TODO: split stats module from metric
         #     brief_metric.update(frame_num)
         return brief_metric
 
+@METRICS.register_module()
+class JointMetric_bevdet(JointMetric): 
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        assert self.brief_metric_file is not None
+        self.best_metric_file = self.brief_metric_file.replace('brief_metric','best_metric')
+    def get_mAP_from_line(self, line):
+        R = 0
+        line = line.strip(':').strip(' ')
+        mAP = line.split('%')[:4]
+        for i in range(4):
+            mAP[i] = float(''.join(i for i in mAP[i] if (i.isdigit() or i =='.')))
+        return mAP
+            
+    def get_best_from_file(self):
+        self.best_mAP = {}
+        for ds in self.dataset_names:
+            self.best_mAP[ds] = np.zeros(4,dtype=float)
+        with open(self.brief_metric_file,'r') as f:
+            lines = f.readlines()
+            for line in lines:
+                R = line.find(':')
+                ds = line[:R]
+                if ds in self.dataset_names:
+                    mAP = self.get_mAP_from_line(line[R:])
+                    if mAP[0] > self.best_mAP[ds][0]:
+                        self.best_mAP[ds] = mAP
+
+        with open(self.best_metric_file,'w') as f:
+            for i in self.best_mAP:
+                print('{}: {}% ({}%/{}%/{}%)'.format(i,*self.best_mAP[i]),file=f)
+        return self.best_mAP
+
+    def compute_metrics(self, results):
+        brief_metric = super().compute_metrics(results)
+        self.get_best_from_file()
+        return brief_metric 
 
 # LabelConverter should be used ONLY when we are 
 # evaluating old model trained with 10 classes
@@ -462,8 +519,7 @@ class CustomNuscMetric(NuScenesMetric):
             result['pred_instances_3d']['bboxes_3d'].tensor = new_tsr
             result['pred_instances_3d']['bboxes_3d'].box_dim = 9
 
-        self.data_infos = load(
-            self.ann_file, file_client_args=self.file_client_args)['data_list']
+        self.data_infos = load(self.ann_file)['data_list']
         result_dict, tmp_dir = self.format_results(results, classes,
                                                    self.jsonfile_prefix)
 

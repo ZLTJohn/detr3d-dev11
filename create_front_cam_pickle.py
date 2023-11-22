@@ -96,11 +96,12 @@ def create_front_pkl(pkl):
 
 
 pkls = [
-# 'data/waymo_dev1x/kitti_format/debug_val.pkl',
-# 'data/waymo_dev1x/kitti_format/waymo_infos_train_2Hz_part.pkl',
-# 'data/waymo_dev1x/kitti_format/waymo_infos_train_2Hz.pkl',
-# 'data/waymo_dev1x/kitti_format/waymo_infos_val_2Hz_part.pkl',
-# 'data/waymo_dev1x/kitti_format/waymo_infos_val_2Hz.pkl',
+'data/waymo_dev1x/kitti_format/debug_val.pkl',
+'data/waymo_dev1x/kitti_format/waymo_infos_train_2Hz_part.pkl',
+'data/waymo_dev1x/kitti_format/waymo_infos_train_2Hz.pkl',
+'data/waymo_dev1x/kitti_format/waymo_infos_train.pkl',
+'data/waymo_dev1x/kitti_format/waymo_infos_val_2Hz_part.pkl',
+'data/waymo_dev1x/kitti_format/waymo_infos_val_2Hz.pkl',
 'data/nus_v2/debug_val.pkl',
 'data/argo2/debug_val.pkl',
 'data/lyft/debug_val.pkl',

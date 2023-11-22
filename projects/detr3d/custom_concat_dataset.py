@@ -140,9 +140,10 @@ class CustomWaymo(WaymoDataset):
 @DATASETS.register_module()
 class CustomLyft(LyftDataset):
     # Palo_Alto
-    def __init__(self,locations=None, **kwargs):
+    def __init__(self,locations=None, focal_interval = None, **kwargs):
         self.load_interval = kwargs.pop('load_interval',1)
         self.locations = locations
+        self.focal_interval = focal_interval
         super().__init__(**kwargs)
 
     def filter_location(self, data_list):
@@ -150,6 +151,15 @@ class CustomLyft(LyftDataset):
         new_list = []
         for i in data_list:
             if i['city_name'] in self.locations:
+                new_list.append(i)
+        return new_list
+    
+    def filter_focal_length(self, data_list):
+        print('LyftDataset: focal_lengths contains {} only!'.format(self.focal_interval))
+        new_list = []
+        for i in data_list:
+            focal = i['images']['CAM_FRONT']['cam2img'][0][0]
+            if (self.focal_interval[0] <= focal) and (focal <= self.focal_interval[1]):
                 new_list.append(i)
         return new_list
     
@@ -165,6 +175,8 @@ class CustomLyft(LyftDataset):
         data_list = self.add_dataset_name(data_list)
         if self.locations is not None:
             data_list = self.filter_location(data_list)
+        if self.focal_interval is not None:
+            data_list = self.filter_focal_length(data_list)
         return data_list
     
 @DATASETS.register_module()

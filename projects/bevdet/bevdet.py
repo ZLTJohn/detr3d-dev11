@@ -51,7 +51,7 @@ class BEVDet(CenterPoint):
     def extract_img_feat(self, img_inputs, img_metas):
         """Extract features of images."""
         x = self.image_encoder(img_inputs)
-        x = self.img_view_transformer(x, img_metas)
+        x = self.img_view_transformer(x, img_metas, self.vis)
         x = self.bev_encoder(x)
         return x
 
@@ -86,7 +86,6 @@ class BEVDet(CenterPoint):
         img_metas = [item.metainfo for item in batch_data_samples]
         img_inputs = batch_inputs_dict.get('imgs', None)
         img_feats = self.extract_feat(img_inputs, img_metas)
-        # breakpoint()
         results_list_3d = self.pts_bbox_head.predict(img_feats, batch_data_samples, **kwargs)
         detsamples = self.add_pred_to_datasample(batch_data_samples,
                                                  results_list_3d)

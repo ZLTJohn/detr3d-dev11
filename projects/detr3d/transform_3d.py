@@ -1,5 +1,5 @@
 from mmdet3d.registry import TRANSFORMS
-from mmdet3d.datasets.transforms.loading import LoadMultiViewImageFromFiles
+from mmdet3d.datasets.transforms.loading import LoadMultiViewImageFromFiles, LoadPointsFromFile
 from mmdet3d.datasets.transforms.formating import Pack3DDetInputs
 import copy
 import mmengine
@@ -469,7 +469,33 @@ class Argo2LoadMultiViewImageFromFiles(LoadMultiViewImageFromFiles):
         results['num_ref_frames'] = self.num_ref_frames
         return results
 
-from typing import Any, Dict, Union
+
+from av2.structures.sweep import Sweep
+from pathlib import Path
+@TRANSFORMS.register_module()
+class Argo2LoadPointsFromFile(LoadPointsFromFile):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        assert self.load_dim == 3 # not support except for xyz
+    def _load_points(self, pts_filename: str) -> np.ndarray:
+        sweep = Sweep.from_feather(Path(pts_filename))
+        points = sweep.xyz
+        return points
+    
+@TRANSFORMS.register_module()
+class fillzeros:
+    def __init__(self, hpre, hsuf) -> None:
+        self.hpre = hpre
+        self.hsuf = hsuf
+    
+    def __call__(self, results):
+        for i in range(len(results['img'])):
+            img = results['img'][i]
+            img[:self.hpre] = 0
+            img[self.hsuf:] = 0
+            results['img'][i]
+        return results
+
 
 from mmengine.registry import MODEL_WRAPPERS
 from mmengine.model.wrappers import MMDistributedDataParallel

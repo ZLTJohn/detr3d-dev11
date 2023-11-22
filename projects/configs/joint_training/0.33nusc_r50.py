@@ -1,3 +1,10 @@
+# Per-class results:
+# Object Class    AP      ATE     ASE     AOE     AVE     AAE
+# car             0.340   0.725   0.166   0.203   2.085   0.486
+# pedestrian      0.304   0.823   0.300   1.354   0.849   0.747
+# bicycle         0.167   0.862   0.298   1.362   0.537   0.122
+
+# nuscenes: 24.5% (40.7%/24.6%/8.1%)
 _base_ = [
     'mmdet3d::_base_/default_runtime.py',
 ]
@@ -53,7 +60,7 @@ waymo_val_interval = 1
 # load_interval_factor = load_interval_type['part']
 input_modality = dict(use_lidar=False, # True if debug_vis
                       use_camera=True)
-work_dir = './work_dirs_joint/0.33nusc_r50_redo'
+work_dir = './work_dirs_joint/0.33nusc_r50_for_bevdet'
 
 argo2_name_map = {
     'REGULAR_VEHICLE': 'Car',
@@ -356,7 +363,12 @@ val_dataloader = dict(
     dataset=nusc_val)
 test_dataloader = val_dataloader
 
-val_evaluator = dict(type = 'JointMetric')
+# val_evaluator = dict(type = 'JointMetric')
+val_evaluator = dict(
+                     type='CustomNuscMetric',
+                     data_root=nusc_data_root,
+                     ann_file=nusc_data_root + 'nuscenes_infos_val.pkl',
+                     metric='bbox')
 test_evaluator = val_evaluator
 
 # learning rate

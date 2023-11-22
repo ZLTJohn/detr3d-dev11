@@ -69,6 +69,11 @@ class GetBEVDetInputs():
         post_tran_3d[:2] = post_tran
         post_rot_3d[:2, :2] = post_rot
         return post_rot_3d, post_tran_3d
+    def to4x4(self, mat):
+        temp = mat.new_zeros(mat.shape[0],4,4)
+        temp[:,:3,:3] = mat[:,:3,:3]
+        temp[:,3,3] = 1
+        return temp
 
     def __call__(self, results):
         assert 'crop' in results
@@ -121,6 +126,7 @@ class GetBEVDetInputs():
 
         rots = cam2lidar[:, :3, :3]
         trans = cam2lidar[:, :3, 3]
+        intrins = self.to4x4(intrins)
         results['bevdet_input'] = [rots, trans, intrins, post_rots, post_trans]
         return results
     

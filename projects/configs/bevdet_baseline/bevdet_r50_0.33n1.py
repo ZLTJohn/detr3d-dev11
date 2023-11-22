@@ -1,3 +1,11 @@
+# Per-class results:
+# Object Class    AP      ATE     ASE     AOE     AVE     AAE
+# car             0.388   0.627   0.184   0.263   2.101   0.510
+# pedestrian      0.241   0.771   0.295   1.479   0.949   0.797
+# bicycle         0.144   0.785   0.304   1.558   0.636   0.146
+
+# nuscenes: 17.7% (31.5%/19.0%/2.4%)	 2007
+
 _base_ = [
           'mmdet3d::_base_/default_runtime.py',]
 # Global
@@ -14,7 +22,7 @@ default_scope = 'mmdet3d'
 nusc_type = 'CustomNusc'
 nusc_root = 'data/nus_v2/'
 nusc_train_pkl = 'nuscenes_infos_train_part.pkl'
-nusc_val_pkl = 'nuscenes_infos_val_part.pkl'
+nusc_val_pkl = 'nuscenes_infos_val.pkl'
 nusc_scale = (704, 396)
 nusc_crop_wh=(704, 256)
 nusc_crop_hw=(256, 704)
@@ -264,11 +272,15 @@ val_dataloader = dict(
 
 test_dataloader = val_dataloader
 
-# val_evaluator = dict(type='CustomNuscMetric',
-#                      data_root=data_root,
-#                      ann_file=data_root + 'nuscenes_infos_val.pkl',
+# val_evaluator = dict(
+#                      type='CustomNuscMetric',
+#                      data_root=nusc_root,
+#                      ann_file=nusc_root + 'nuscenes_infos_val.pkl',
 #                      metric='bbox')
-val_evaluator = dict(type='JointMetric',work_dir = work_dir)
+val_evaluator = dict(type = 'JointMetric',
+                     per_location = True,
+                     work_dir = work_dir,
+                     brief_split = True)
 
 test_evaluator = val_evaluator
 # Optimizer

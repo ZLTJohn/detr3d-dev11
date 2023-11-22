@@ -50,6 +50,8 @@ class visualizer_zlt():
             self.debug_name = debug_name
         self.draw_score = draw_score
         self.draw_type = draw_type
+        self.depth_map = None
+
     def infer_dataset_name(self,path):
         if type(path) == list:
             path = path[0]
@@ -174,8 +176,8 @@ class visualizer_zlt():
 
     def visualize(self, instances_3d=None, img_meta=None, img=None, pts= None, name_suffix='', dirname = None, pause = True):
         # support only one sample once
-        if pause:
-            breakpoint()
+        # if pause:
+        #     breakpoint()
         if type(instances_3d) == list:
             instances_3d = instances_3d[0]
         if type(instances_3d) == dict:
@@ -219,6 +221,9 @@ class visualizer_zlt():
             img_from_tensor = [self.tensor_to_PIL(i) for i in img]
             self.save_bbox2img(img_from_tensor, instances_3d, img_meta,
                                dirname, filename + '_tsr')
+        if self.depth_map is not None:
+            self.save_depth(self.depth_map, dirname, filename, img_meta['pad_shape'][0], img_meta['pad_shape'][1])
+            self.depth_map = None
 
     def save_input_images(self, img, img_meta):
         if type(img_meta) == list:
@@ -460,6 +465,36 @@ class visualizer_zlt():
 
         img.save(out_name)
         # vutils.save_image(im, out_name)
+
+    def store_depth(self, depth):
+        """store the depth map temporarily and then visualize it together with others"""
+        self.depth_map = depth
+
+    def save_depth(self, depths, dirname, out_name, Hout, Wout):
+        import matplotlib.cm as cm
+        import torch.nn.functional as F
+        depths = depths[0].clone().cpu() # support only batch size = 1
+        for i,depth in enumerate(depths):
+            D, H, W = depth.shape
+            depth = F.interpolate(depth.unsqueeze(0), size=(Hout, Wout), mode='bilinear', align_corners=False)
+            depth = depth[0]
+            depth_levels = torch.arange(D).float()
+            average_depth = (depth * depth_levels.view(D, 1, 1)).sum(dim=0)
+
+            # 归一化深度值到 [0, 1]
+            normalized_depth = (average_depth - average_depth.min()) / (average_depth.max() - average_depth.min())
+            inverse_depth = 1.0 - normalized_depth
+            # 使用matplotlib的viridis颜色映射（从黄色到深蓝色）
+            colormap = cm.get_cmap('viridis')
+            colored_depth = colormap(inverse_depth.numpy())
+
+            # 从RGBA转换为RGB
+            colored_depth = (colored_depth[:, :, :3] * 255).astype('uint8')
+
+            # 创建PIL图像并保存
+            img = Image.fromarray(colored_depth, mode='RGB')
+            save_path = dirname + '/' + out_name + str(i) + '_depth.jpg'
+            img.save(save_path)
 
     def get_circle_from_diam(self, pt1, pt2):
         d = ((pt1[0] - pt2[0])**2 + (pt1[1] - pt2[1])**2)**0.5
