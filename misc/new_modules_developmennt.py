@@ -78,75 +78,75 @@ class RoiAlignFeatSampler(GeoAwareFeatSampler):
 
 
 
-# def CamCenters2Objects(ref_pt, img_metas):
-#     lidar2cam = [meta['lidar2cam'] for meta in img_metas]
-#     lidar2cam = np.asarray(lidar2cam)
-#     cam2lidar = np.linalg.inv(lidar2cam)
-#     CamCenters = ref_pt.new_tensor(cam2lidar[:,:,:3,-1]).unsqueeze(2)   # B N 1 3
-#     ref_pt = ref_pt.unsqueeze(1)    # B 1 Q 3
-#     cam2refpt = ref_pt - CamCenters
-#     return torch.norm(cam2refpt,dim=-1)
+def CamCenters2Objects(ref_pt, img_metas):
+    lidar2cam = [meta['lidar2cam'] for meta in img_metas]
+    lidar2cam = np.asarray(lidar2cam)
+    cam2lidar = np.linalg.inv(lidar2cam)
+    CamCenters = ref_pt.new_tensor(cam2lidar[:,:,:3,-1]).unsqueeze(2)   # B N 1 3
+    ref_pt = ref_pt.unsqueeze(1)    # B 1 Q 3
+    cam2refpt = ref_pt - CamCenters
+    return torch.norm(cam2refpt,dim=-1)
 
-# def feature_sampling_RoiSimple(mlvl_feats,
-#                      ref_pt,
-#                      pc_range,
-#                      img_metas,
-#                      offset_2d = [[0,0],[-0.5,-0.5],[-0.5,0.5],[0.5,-0.5],[0.5,0.5]],
-#                      vis_only = False):
-#     ref_pt_3d = ref_pt.clone()
-#     ref_pt = ref_pt.clone()
-#     pt_cam, mask = feature_sampling(mlvl_feats, ref_pt, pc_range, img_metas, no_sampling=True)
-#     K = len(offset_2d)
-#     B, N, Q, _ = mask.shape
-#     ref_pt[..., 0:1] = ref_pt[..., 0:1] * (pc_range[3] - pc_range[0]) + pc_range[0]  # x
-#     ref_pt[..., 1:2] = ref_pt[..., 1:2] * (pc_range[4] - pc_range[1]) + pc_range[1]  # y
-#     ref_pt[..., 2:3] = ref_pt[..., 2:3] * (pc_range[5] - pc_range[2]) + pc_range[2]  # z
-#     ref_pt_dist = CamCenters2Objects(ref_pt, img_metas)
-#     # ref_pt_dist = torch.norm(ref_pt,dim=-1)# wrong,you should use extrinsics to get something shaped in [B,N,Q] but not [B,Q]
-#     base_dist = 51.2
-#     scale_factor = base_dist / ref_pt_dist
-#     scale_factor = scale_factor.view(B,N,Q,1,1)
-#     offset_2d = ref_pt.new_tensor(offset_2d).view(1,1,1,K,2)
-#     offset_pt_cam = offset_2d * scale_factor
-#     pt_cam = pt_cam.view(B,N,Q,1,2)
+def feature_sampling_RoiSimple(mlvl_feats,
+                     ref_pt,
+                     pc_range,
+                     img_metas,
+                     offset_2d = [[0,0],[-0.5,-0.5],[-0.5,0.5],[0.5,-0.5],[0.5,0.5]],
+                     vis_only = False):
+    ref_pt_3d = ref_pt.clone()
+    ref_pt = ref_pt.clone()
+    pt_cam, mask = feature_sampling(mlvl_feats, ref_pt, pc_range, img_metas, no_sampling=True)
+    K = len(offset_2d)
+    B, N, Q, _ = mask.shape
+    ref_pt[..., 0:1] = ref_pt[..., 0:1] * (pc_range[3] - pc_range[0]) + pc_range[0]  # x
+    ref_pt[..., 1:2] = ref_pt[..., 1:2] * (pc_range[4] - pc_range[1]) + pc_range[1]  # y
+    ref_pt[..., 2:3] = ref_pt[..., 2:3] * (pc_range[5] - pc_range[2]) + pc_range[2]  # z
+    ref_pt_dist = CamCenters2Objects(ref_pt, img_metas)
+    # ref_pt_dist = torch.norm(ref_pt,dim=-1)# wrong,you should use extrinsics to get something shaped in [B,N,Q] but not [B,Q]
+    base_dist = 51.2
+    scale_factor = base_dist / ref_pt_dist
+    scale_factor = scale_factor.view(B,N,Q,1,1)
+    offset_2d = ref_pt.new_tensor(offset_2d).view(1,1,1,K,2)
+    offset_pt_cam = offset_2d * scale_factor
+    pt_cam = pt_cam.view(B,N,Q,1,2)
     
-#     # pt_cam = (pt_cam - 0.5) * 2  # [0,1] to [-1,1] to do grid_sample
-#     vis0,vis1=[],[]
-#     sampled_feats = []
-#     for lvl, feat in enumerate(mlvl_feats):
-#         B, N, C, H, W = feat.size()
-#         feat = feat.view(B * N, C, H, W)
-#         offset_pt_cam_lvl = offset_pt_cam.clone()
-#         offset_pt_cam_lvl[...,0] /= W
-#         offset_pt_cam_lvl[...,1] /= H
-#         pt_cam_lvl = pt_cam + offset_pt_cam_lvl
-#         if vis_only == True:
-#             vis0.append(pt_cam_lvl.view(B,N,Q*K,2))
-#             vis1.append(mask.view(B,N,Q,1).repeat(1,1,1,K).view(B,N,Q*K))
-#             continue
-#             # 1,N,Q,K,2
-#         pt_cam_lvl = (pt_cam_lvl-0.5)*2 
-#         pt_cam_lvl = pt_cam_lvl.view(B * N, Q*K, 1, 2)
-#         sampled_feat = F.grid_sample(feat, pt_cam_lvl)
-#         # (B num_cam C num_query 1) -> List of (B C num_q num_cam 1)
-#         sampled_feat = sampled_feat.view(B, N, C, Q*K, 1)
-#         sampled_feat = sampled_feat.permute(0, 2, 3, 1, 4)
-#         sampled_feats.append(sampled_feat)
-#     if vis_only:
-#         vis0 = torch.stack(vis0,2).view(B,N,-1,2)
-#         vis1 = torch.stack(vis1,2).view(B,N,-1)
-#         return vis0,vis1
+    # pt_cam = (pt_cam - 0.5) * 2  # [0,1] to [-1,1] to do grid_sample
+    vis0,vis1=[],[]
+    sampled_feats = []
+    for lvl, feat in enumerate(mlvl_feats):
+        B, N, C, H, W = feat.size()
+        feat = feat.view(B * N, C, H, W)
+        offset_pt_cam_lvl = offset_pt_cam.clone()
+        offset_pt_cam_lvl[...,0] /= W
+        offset_pt_cam_lvl[...,1] /= H
+        pt_cam_lvl = pt_cam + offset_pt_cam_lvl
+        if vis_only == True:
+            vis0.append(pt_cam_lvl.view(B,N,Q*K,2))
+            vis1.append(mask.view(B,N,Q,1).repeat(1,1,1,K).view(B,N,Q*K))
+            continue
+            # 1,N,Q,K,2
+        pt_cam_lvl = (pt_cam_lvl-0.5)*2 
+        pt_cam_lvl = pt_cam_lvl.view(B * N, Q*K, 1, 2)
+        sampled_feat = F.grid_sample(feat, pt_cam_lvl)
+        # (B num_cam C num_query 1) -> List of (B C num_q num_cam 1)
+        sampled_feat = sampled_feat.view(B, N, C, Q*K, 1)
+        sampled_feat = sampled_feat.permute(0, 2, 3, 1, 4)
+        sampled_feats.append(sampled_feat)
+    if vis_only:
+        vis0 = torch.stack(vis0,2).view(B,N,-1,2)
+        vis1 = torch.stack(vis1,2).view(B,N,-1)
+        return vis0,vis1
 
-#     sampled_feats = torch.stack(sampled_feats, -1)
-#     # (B C num_q num_cam fpn_lvl)
-#     sampled_feats = sampled_feats.view(B, C, Q, K, N, 1, len(mlvl_feats))
-#     sampled_feats = sampled_feats.mean(3)
-#     mask = mask.view(B, N, 1, Q, 1, 1).permute(0, 2, 3, 1, 4, 5)
-#     mask = torch.nan_to_num(mask)
-#     return ref_pt_3d, sampled_feats, mask
-#     # pt_cam[..., 0] *= W
-#     # pt_cam[..., 1] *= H
-#     # pt_cam.view(B,N,)
+    sampled_feats = torch.stack(sampled_feats, -1)
+    # (B C num_q num_cam fpn_lvl)
+    sampled_feats = sampled_feats.view(B, C, Q, K, N, 1, len(mlvl_feats))
+    sampled_feats = sampled_feats.mean(3)
+    mask = mask.view(B, N, 1, Q, 1, 1).permute(0, 2, 3, 1, 4, 5)
+    mask = torch.nan_to_num(mask)
+    return ref_pt_3d, sampled_feats, mask
+    # pt_cam[..., 0] *= W
+    # pt_cam[..., 1] *= H
+    # pt_cam.view(B,N,)
 
 
 # def feature_sampling(mlvl_feats,
