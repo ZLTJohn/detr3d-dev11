@@ -4,7 +4,7 @@ from mmdet3d.datasets.transforms.loading import LoadMultiViewImageFromFiles
 from mmdet.datasets.transforms import Rotate
 from mmdet3d.datasets.transforms.transforms_3d import RandomCrop
 # from mmdet3d.datasets.transforms.formating import Pack3DDetInputs
-from projects.detr3d.transform_3d import Pack3DDetInputsExtra
+from projects.cross_dataset.transform_3d import Pack3DDetInputsExtra
 from mmengine.fileio import get
 import numpy as np
 import torch

@@ -123,7 +123,8 @@ class DETR3D(MVXTwoStageDetector):
                 img_feats = img0_feats
         else:
             img_feats = self.extract_img_feat(imgs, batch_input_metas)
-            return img_feats
+
+        return img_feats
 
     def _forward(self):
         raise NotImplementedError('tensor mode is yet to add')

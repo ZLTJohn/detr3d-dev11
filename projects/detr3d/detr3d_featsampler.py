@@ -241,18 +241,6 @@ class GeoAwareFeatSampler(DefaultFeatSampler):
         mask = torch.nan_to_num(mask)
         return sampled_feats, mask
 
-@MODELS.register_module()
-class CameraAwareFeatSampler(GeoAwareFeatSampler):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.virtual_cam_dist = 0
-
-    def get_scale_factor(self, ref_pt, pc_range, img_metas):
-        cam2refpt, ego2refpt  = self.CamCenters2Objects(ref_pt, pc_range, 
-                                                        img_metas, refpt_dist=True)
-        scale_factor = (ego2refpt - self.virtual_cam_dist) / cam2refpt
-        return scale_factor
-
 # TODO: make it compatible with Multi-view. Actually it is easy since you can just use 'z' in project_ego_to_cam()
 @MODELS.register_module()
 class FrontCameraPoseAwareFeatSampler(GeoAwareFeatSampler):

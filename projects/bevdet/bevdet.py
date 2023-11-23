@@ -5,7 +5,7 @@ from mmdet3d.models.detectors.centerpoint import CenterPoint
 from typing import Dict, List, Optional
 from torch import Tensor
 from mmdet3d.structures import Det3DDataSample
-from projects.detr3d.vis_zlt import visualizer_zlt
+from projects.cross_dataset.vis_zlt import visualizer_zlt
 @MODELS.register_module()
 class BEVDet(CenterPoint):
     r"""BEVDet paradigm for multi-camera 3D object detection.

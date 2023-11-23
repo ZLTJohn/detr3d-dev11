@@ -9,10 +9,24 @@ from mmcv.cnn.bricks.transformer import (TransformerLayerSequence,
 from mmcv.ops.multi_scale_deform_attn import MultiScaleDeformableAttention
 from mmdet3d.registry import MODELS
 from mmengine.model import BaseModule, constant_init, xavier_init
+from .detr3d_featsampler import GeoAwareFeatSampler
 from .detr3d_transformer import Detr3DCrossAtten, inverse_sigmoid
 from typing import Dict, List, Optional
 from torch import Tensor
 from .detr3d import DETR3D
+
+
+@MODELS.register_module()
+class CameraAwareFeatSampler(GeoAwareFeatSampler):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.virtual_cam_dist = 0
+
+    def get_scale_factor(self, ref_pt, pc_range, img_metas):
+        cam2refpt, ego2refpt  = self.CamCenters2Objects(ref_pt, pc_range, 
+                                                        img_metas, refpt_dist=True)
+        scale_factor = (ego2refpt - self.virtual_cam_dist) / cam2refpt
+        return scale_factor
 
 @MODELS.register_module()
 class Detr3DCrossAtten_CamEmb(Detr3DCrossAtten):
